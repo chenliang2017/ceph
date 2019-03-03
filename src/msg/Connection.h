@@ -36,13 +36,16 @@
 
 // abstract Connection, for keeping per-connection state
 
+///< 2019/3/3, 网络连接基类
+///< 每一个Connection对象代表一个网络连接
+
 class Messenger;
 
 struct Connection : public RefCountedObject {
   mutable Mutex lock;
   Messenger *msgr;
   RefCountedPtr priv;
-  int peer_type;
+  int peer_type;                                    // 服务类型: OSD, MON, MDS, CLIENT, MGR
   safe_item_history<entity_addrvec_t> peer_addrs;
   utime_t last_keepalive, last_keepalive_ack;
 private:
