@@ -20,7 +20,7 @@
 Mutex::Mutex(const std::string &n, bool r, bool ld,
 	     bool bt) :
   name(n), id(-1), recursive(r), lockdep(ld), backtrace(bt), nlock(0),
-  locked_by(0)
+  locked_by(0)  // r, ld, bt Ä¬ÈÏ¾ùÎªfalse
 {
   ANNOTATE_BENIGN_RACE_SIZED(&id, sizeof(id), "Mutex lockdep id");
   ANNOTATE_BENIGN_RACE_SIZED(&nlock, sizeof(nlock), "Mutex nlock");

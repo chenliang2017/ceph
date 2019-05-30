@@ -38,8 +38,9 @@ namespace ceph::buffer {
     std::pair<size_t, size_t> last_crc_offset {std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max()};
     std::pair<uint32_t, uint32_t> last_crc_val;
 
-    mutable ceph::spinlock crc_spinlock;
+    mutable ceph::spinlock crc_spinlock;    ///< 表示易变的，可变的，用来突破const的限制;
 
+    ///< explicit 显式的构造函数
     explicit raw(unsigned l, int mempool=mempool::mempool_buffer_anon)
       : data(nullptr), len(l), nref(0), mempool(mempool) {
       mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(1, len);
@@ -50,29 +51,29 @@ namespace ceph::buffer {
     }
     virtual ~raw() {
       mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(
-	-1, -(int)len);
+	    -1, -(int)len);
     }
 
     void _set_len(unsigned l) {
       mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(
-	-1, -(int)len);
+	    -1, -(int)len);
       len = l;
       mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(1, len);
     }
 
     void reassign_to_mempool(int pool) {
       if (pool == mempool) {
-	return;
+	    return;
       }
       mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(
-	-1, -(int)len);
+	    -1, -(int)len);
       mempool = pool;
       mempool::get_pool(mempool::pool_index_t(pool)).adjust_count(1, len);
     }
 
     void try_assign_to_mempool(int pool) {
       if (mempool == mempool::mempool_buffer_anon) {
-	reassign_to_mempool(pool);
+	    reassign_to_mempool(pool);
       }
     }
 
@@ -98,7 +99,8 @@ public:
       return true;
     }
     bool get_crc(const std::pair<size_t, size_t> &fromto,
-		 std::pair<uint32_t, uint32_t> *crc) const {
+		 std::pair<uint32_t, uint32_t> *crc) const
+    {
       std::lock_guard lg(crc_spinlock);
       if (last_crc_offset == fromto) {
         *crc = last_crc_val;
@@ -107,12 +109,14 @@ public:
       return false;
     }
     void set_crc(const std::pair<size_t, size_t> &fromto,
-		 const std::pair<uint32_t, uint32_t> &crc) {
+		 const std::pair<uint32_t, uint32_t> &crc)
+	{
       std::lock_guard lg(crc_spinlock);
       last_crc_offset = fromto;
       last_crc_val = crc;
     }
-    void invalidate_crc() {
+    void invalidate_crc()
+    {
       std::lock_guard lg(crc_spinlock);
       last_crc_offset.first = std::numeric_limits<size_t>::max();
       last_crc_offset.second = std::numeric_limits<size_t>::max();

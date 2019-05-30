@@ -21,7 +21,7 @@
 #define dout_prefix *_dout << "timer(" << this << ")."
 
 
-
+// 执行定时任务的线程
 class SafeTimerThread : public Thread {
   SafeTimer *parent;
 public:
@@ -53,7 +53,7 @@ SafeTimer::~SafeTimer()
 void SafeTimer::init()
 {
   ldout(cct,10) << "init" << dendl;
-  thread = new SafeTimerThread(this);
+  thread = new SafeTimerThread(this);   // 初始化定时器线程
   thread->create("safe_timer");
 }
 
@@ -80,23 +80,24 @@ void SafeTimer::timer_thread()
   while (!stopping) {
     utime_t now = ceph_clock_now();
 
+    // 定时任务队列
     while (!schedule.empty()) {
       scheduled_map_t::iterator p = schedule.begin();
 
       // is the future now?
       if (p->first > now)
-	break;
+	    break;
 
       Context *callback = p->second;
       events.erase(callback);
       schedule.erase(p);
       ldout(cct,10) << "timer_thread executing " << callback << dendl;
-      
+
       if (!safe_callbacks)
-	lock.unlock();
-      callback->complete(0);
+	    lock.unlock();
+      callback->complete(0);    // 任务回调
       if (!safe_callbacks)
-	lock.lock();
+	    lock.lock();
     }
 
     // recheck stopping if we dropped the lock
@@ -133,7 +134,7 @@ Context* SafeTimer::add_event_at(utime_t when, Context *callback)
     return nullptr;
   }
   scheduled_map_t::value_type s_val(when, callback);
-  scheduled_map_t::iterator i = schedule.insert(s_val);
+  scheduled_map_t::iterator i = schedule.insert(s_val); // 定时事件
 
   event_lookup_map_t::value_type e_val(callback, i);
   pair < event_lookup_map_t::iterator, bool > rval(events.insert(e_val));
@@ -151,7 +152,7 @@ Context* SafeTimer::add_event_at(utime_t when, Context *callback)
 bool SafeTimer::cancel_event(Context *callback)
 {
   ceph_assert(lock.is_locked());
-  
+
   auto p = events.find(callback);
   if (p == events.end()) {
     ldout(cct,10) << "cancel_event " << callback << " not found" << dendl;

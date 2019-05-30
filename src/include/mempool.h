@@ -172,7 +172,7 @@ namespace mempool {
 // give them integer ids
 #define P(x) mempool_##x,
 enum pool_index_t {
-  DEFINE_MEMORY_POOLS_HELPER(P)
+  DEFINE_MEMORY_POOLS_HELPER(P)     ///> ºêÕ¹¿ª, mempool_bloom_filter, mempool_bluestore_alloc, ...
   num_pools        // Must be last.
 };
 #undef P
@@ -197,7 +197,7 @@ struct shard_t {
   std::atomic<size_t> bytes = {0};
   std::atomic<size_t> items = {0};
   char __padding[128 - sizeof(std::atomic<size_t>)*2];
-} __attribute__ ((aligned (128)));
+} __attribute__ ((aligned (128)));  ///> 128byte¶ÔÆë
 
 static_assert(sizeof(shard_t) == 128, "shard_t should be cacheline-sized");
 

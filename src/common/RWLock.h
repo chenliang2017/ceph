@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 
 
@@ -25,6 +25,8 @@
 #include "common/valgrind.h"
 
 #include <atomic>
+
+// C++11的关键字final有两个用途：(1)、禁止虚函数被重写；(2)、禁止基类被继承
 
 class RWLock final
 {
@@ -54,8 +56,8 @@ public:
           PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
       pthread_rwlock_init(&L, &attr);
       pthread_rwlockattr_destroy(&attr);
-    } else 
-#endif 
+    } else
+#endif
     // Next block is in {} to possibly connect to the above if when code is used.
     {
       pthread_rwlock_init(&L, NULL);

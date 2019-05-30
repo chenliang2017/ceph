@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 
 #ifndef CEPH_MUTEX_H
@@ -26,15 +26,15 @@ using namespace ceph;
 
 class Mutex {
 private:
-  std::string name;
+  std::string name; // 锁的名字
   int id;
-  bool recursive;
-  bool lockdep;
-  bool backtrace;  // gather backtrace on lock acquisition
+  bool recursive;   // 递归锁
+  bool lockdep;     // 同一线程重复加锁时会报错, 而不是死锁
+  bool backtrace;   // gather backtrace on lock acquisition
 
-  pthread_mutex_t _m;
-  int nlock;
-  pthread_t locked_by;
+  pthread_mutex_t _m;   // pthread锁
+  int nlock;            // 加锁次数
+  pthread_t locked_by;  // 加锁线程的线程ID
 
   // don't allow copying.
   void operator=(const Mutex &M);

@@ -22,6 +22,9 @@ class CephContext;
 class Context;
 class SafeTimerThread;
 
+//> 定时器, 内部有线程
+//> 和外部创建者共用一个lock, 任务回调时会加锁会加锁, 格外注意回调函数中的锁使用情况, 防止死锁
+
 class SafeTimer
 {
   CephContext *cct;
@@ -35,7 +38,7 @@ class SafeTimer
   void timer_thread();
   void _shutdown();
 
-  std::multimap<utime_t, Context*> schedule;
+  std::multimap<utime_t, Context*> schedule;    // multimap, 允许同一时间存在多个不同的任务
   std::map<Context*, std::multimap<utime_t, Context*>::iterator> events;
   bool stopping;
 
@@ -70,6 +73,7 @@ public:
 
   /* Schedule an event in the future
    * Call with the event_lock LOCKED */
+  // 添加定时任务
   Context* add_event_after(double seconds, Context *callback);
   Context* add_event_at(utime_t when, Context *callback);
 
