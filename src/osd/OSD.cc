@@ -393,7 +393,7 @@ void OSDService::_maybe_split_pgid(OSDMapRef old_map,
   if (pgid.ps() < static_cast<unsigned>(old_pgnum)) {
     set<spg_t> children;
     if (pgid.is_split(old_pgnum,
-		  new_map->get_pg_num(pgid.pool()), &children)) { 
+		  new_map->get_pg_num(pgid.pool()), &children)) {
       _start_split(pgid, children); }
   } else {
     assert(pgid.ps() < static_cast<unsigned>(new_map->get_pg_num(pgid.pool())));
@@ -1734,11 +1734,11 @@ void OSDService::queue_for_snap_trim(PG *pg)
 #define dout_prefix *_dout
 
 // Commands shared between OSD's console and admin console:
-namespace ceph { 
-namespace osd_cmds { 
+namespace ceph {
+namespace osd_cmds {
 
 int heap(CephContext& cct, cmdmap_t& cmdmap, Formatter& f, std::ostream& os);
- 
+
 }} // namespace ceph::osd_cmds
 
 int OSD::mkfs(CephContext *cct, ObjectStore *store, const string &dev,
@@ -2055,6 +2055,7 @@ OSD::~OSD()
 double OSD::get_tick_interval() const
 {
   // vary +/- 5% to avoid scrub scheduling livelocks
+  // 1.0 == OSD_TICK_INTERVAL, 0.95 ~ 1.05
   constexpr auto delta = 0.05;
   std::default_random_engine rng{static_cast<unsigned>(whoami)};
   return (OSD_TICK_INTERVAL *
@@ -2317,7 +2318,7 @@ will start to track new ops received afterwards.";
     store->compact();
     auto end = ceph::coarse_mono_clock::now();
     auto time_span = chrono::duration_cast<chrono::duration<double>>(end - start);
-    dout(1) << "finished manual compaction in " 
+    dout(1) << "finished manual compaction in "
             << time_span.count()
             << " seconds" << dendl;
     f->open_object_section("compact_result");
@@ -2634,7 +2635,7 @@ int OSD::init()
    */
   mgrc.set_pgstats_cb([this](){
       RWLock::RLocker l(map_lock);
-      
+
       utime_t had_for = ceph_clock_now() - had_map_since;
       osd_stat_t cur_stat = service.get_osd_stat();
       cur_stat.os_perf_stat = store->get_cur_stats();
@@ -2673,7 +2674,7 @@ int OSD::init()
   update_log_config();
 
   peering_tp.start();
-  
+
   service.init();
   service.publish_map(osdmap);
   service.publish_superblock(superblock);
@@ -3165,7 +3166,7 @@ void OSD::create_logger()
   osd_plb.add_u64(
     l_osd_cached_crc_adjusted, "cached_crc_adjusted",
     "Total number getting crc from crc_cache with adjusting");
-  osd_plb.add_u64(l_osd_missed_crc, "missed_crc", 
+  osd_plb.add_u64(l_osd_missed_crc, "missed_crc",
     "Total number of crc cache misses");
 
   osd_plb.add_u64(l_osd_pg, "numpg", "Placement groups",
@@ -4980,6 +4981,7 @@ void OSD::reset_heartbeat_peers()
   failure_queue.clear();
 }
 
+// 处理接收到的心跳消息
 void OSD::handle_osd_ping(MOSDPing *m)
 {
   if (superblock.cluster_fsid != m->fsid) {
@@ -5010,57 +5012,57 @@ void OSD::handle_osd_ping(MOSDPing *m)
   case MOSDPing::PING:
     {
       if (cct->_conf->osd_debug_drop_ping_probability > 0) {
-	auto heartbeat_drop = debug_heartbeat_drops_remaining.find(from);
-	if (heartbeat_drop != debug_heartbeat_drops_remaining.end()) {
-	  if (heartbeat_drop->second == 0) {
-	    debug_heartbeat_drops_remaining.erase(heartbeat_drop);
-	  } else {
-	    --heartbeat_drop->second;
-	    dout(5) << "Dropping heartbeat from " << from
-		    << ", " << heartbeat_drop->second
-		    << " remaining to drop" << dendl;
-	    break;
-	  }
-	} else if (cct->_conf->osd_debug_drop_ping_probability >
-	           ((((double)(rand()%100))/100.0))) {
-	  heartbeat_drop =
-	    debug_heartbeat_drops_remaining.insert(std::make_pair(from,
-	                     cct->_conf->osd_debug_drop_ping_duration)).first;
-	  dout(5) << "Dropping heartbeat from " << from
-		  << ", " << heartbeat_drop->second
-		  << " remaining to drop" << dendl;
-	  break;
-	}
+	      auto heartbeat_drop = debug_heartbeat_drops_remaining.find(from);
+  	    if (heartbeat_drop != debug_heartbeat_drops_remaining.end()) {
+  	      if (heartbeat_drop->second == 0) {
+  	        debug_heartbeat_drops_remaining.erase(heartbeat_drop);
+  	      } else {
+  	        --heartbeat_drop->second;
+  	        dout(5) << "Dropping heartbeat from " << from
+  		        << ", " << heartbeat_drop->second
+  		        << " remaining to drop" << dendl;
+  	        break;
+  	      }
+  	    } else if (cct->_conf->osd_debug_drop_ping_probability >
+  	           ((((double)(rand()%100))/100.0))) {
+  	      heartbeat_drop =
+  	        debug_heartbeat_drops_remaining.insert(std::make_pair(from,
+  	                     cct->_conf->osd_debug_drop_ping_duration)).first;
+      	  dout(5) << "Dropping heartbeat from " << from
+      		  << ", " << heartbeat_drop->second
+      		  << " remaining to drop" << dendl;
+      	  break;
+      	}
       }
 
       if (!cct->get_heartbeat_map()->is_healthy()) {
-	dout(10) << "internal heartbeat not healthy, dropping ping request" << dendl;
-	break;
+      	dout(10) << "internal heartbeat not healthy, dropping ping request" << dendl;
+      	break;
       }
 
       Message *r = new MOSDPing(monc->get_fsid(),
 				curmap->get_epoch(),
-				MOSDPing::PING_REPLY, m->stamp,
+				MOSDPing::PING_REPLY, m->stamp, // 使用ping中得时间戳, 避免主机间时间不同步造成的误判
 				cct->_conf->osd_heartbeat_min_size);
-      m->get_connection()->send_message(r);
+      m->get_connection()->send_message(r); // 回发ping_reply
 
       if (curmap->is_up(from)) {
-	service.note_peer_epoch(from, m->map_epoch);
-	if (is_active()) {
-	  ConnectionRef con = service.get_con_osd_cluster(from, curmap->get_epoch());
-	  if (con) {
-	    service.share_map_peer(from, con.get());
-	  }
-	}
+      	service.note_peer_epoch(from, m->map_epoch);
+      	if (is_active()) {
+      	  ConnectionRef con = service.get_con_osd_cluster(from, curmap->get_epoch());
+      	  if (con) {
+      	    service.share_map_peer(from, con.get());
+      	  }
+      	}
       } else if (!curmap->exists(from) ||
-		 curmap->get_down_at(from) > m->map_epoch) {
-	// tell them they have died
-	Message *r = new MOSDPing(monc->get_fsid(),
-				  curmap->get_epoch(),
-				  MOSDPing::YOU_DIED,
-				  m->stamp,
-				  cct->_conf->osd_heartbeat_min_size);
-	m->get_connection()->send_message(r);
+		             curmap->get_down_at(from) > m->map_epoch) {
+      	// tell them they have died
+      	Message *r = new MOSDPing(monc->get_fsid(),
+      				  curmap->get_epoch(),
+      				  MOSDPing::YOU_DIED,
+      				  m->stamp,
+      				  cct->_conf->osd_heartbeat_min_size);
+      	m->get_connection()->send_message(r);
       }
     }
     break;
@@ -5069,58 +5071,59 @@ void OSD::handle_osd_ping(MOSDPing *m)
     {
       map<int,HeartbeatInfo>::iterator i = heartbeat_peers.find(from);
       if (i != heartbeat_peers.end()) {
-	if (m->get_connection() == i->second.con_back) {
-	  dout(25) << "handle_osd_ping got reply from osd." << from
-		   << " first_tx " << i->second.first_tx
-		   << " last_tx " << i->second.last_tx
-		   << " last_rx_back " << i->second.last_rx_back << " -> " << m->stamp
-		   << " last_rx_front " << i->second.last_rx_front
-		   << dendl;
-	  i->second.last_rx_back = m->stamp;
-	  // if there is no front con, set both stamps.
-	  if (i->second.con_front == NULL)
-	    i->second.last_rx_front = m->stamp;
-	} else if (m->get_connection() == i->second.con_front) {
-	  dout(25) << "handle_osd_ping got reply from osd." << from
-		   << " first_tx " << i->second.first_tx
-		   << " last_tx " << i->second.last_tx
-		   << " last_rx_back " << i->second.last_rx_back
-		   << " last_rx_front " << i->second.last_rx_front << " -> " << m->stamp
-		   << dendl;
-	  i->second.last_rx_front = m->stamp;
-	}
+      	if (m->get_connection() == i->second.con_back) {
+      	  dout(25) << "handle_osd_ping got reply from osd." << from
+      		   << " first_tx " << i->second.first_tx
+      		   << " last_tx " << i->second.last_tx
+      		   << " last_rx_back " << i->second.last_rx_back << " -> " << m->stamp
+      		   << " last_rx_front " << i->second.last_rx_front
+      		   << dendl;
+      	  i->second.last_rx_back = m->stamp;    // 后端网络上次接收到錺ing_reply的时间戳
+      	  // if there is no front con, set both stamps.
+      	  if (i->second.con_front == NULL)
+      	    i->second.last_rx_front = m->stamp; // 前端网络上次接收到錺ing_reply的时间戳
+      	} else if (m->get_connection() == i->second.con_front) {
+      	  dout(25) << "handle_osd_ping got reply from osd." << from
+      		   << " first_tx " << i->second.first_tx
+      		   << " last_tx " << i->second.last_tx
+      		   << " last_rx_back " << i->second.last_rx_back
+      		   << " last_rx_front " << i->second.last_rx_front << " -> " << m->stamp
+      		   << dendl;
+      	  i->second.last_rx_front = m->stamp;   // 前端网络上次接收到錺ing_reply的时间戳
+      	}
 
         utime_t cutoff = ceph_clock_now();
-        cutoff -= cct->_conf->osd_heartbeat_grace;
-        if (i->second.is_healthy(cutoff)) {
+        cutoff -= cct->_conf->osd_heartbeat_grace; // 20 == osd_heartbeat_grace
+        if (i->second.is_healthy(cutoff)) { // 前后端均未20秒超时
           // Cancel false reports
-	  auto failure_queue_entry = failure_queue.find(from);
-	  if (failure_queue_entry != failure_queue.end()) {
+	        auto failure_queue_entry = failure_queue.find(from);
+	        if (failure_queue_entry != failure_queue.end()) {
             dout(10) << "handle_osd_ping canceling queued "
                      << "failure report for osd." << from << dendl;
             failure_queue.erase(failure_queue_entry);
           }
 
-	  auto failure_pending_entry = failure_pending.find(from);
-	  if (failure_pending_entry != failure_pending.end()) {
+	        auto failure_pending_entry = failure_pending.find(from);
+	        if (failure_pending_entry != failure_pending.end()) {
             dout(10) << "handle_osd_ping canceling in-flight "
                      << "failure report for osd." << from << dendl;
             send_still_alive(curmap->get_epoch(),
-			     failure_pending_entry->second.second);
+			      failure_pending_entry->second.second);
             failure_pending.erase(failure_pending_entry);
           }
         }
       }
 
       if (m->map_epoch &&
-	  curmap->is_up(from)) {
-	service.note_peer_epoch(from, m->map_epoch);
-	if (is_active()) {
-	  ConnectionRef con = service.get_con_osd_cluster(from, curmap->get_epoch());
-	  if (con) {
-	    service.share_map_peer(from, con.get());
-	  }
-	}
+	        curmap->is_up(from))
+	    {
+      	service.note_peer_epoch(from, m->map_epoch);
+      	if (is_active()) {
+      	  ConnectionRef con = service.get_con_osd_cluster(from, curmap->get_epoch());
+      	  if (con) {
+      	    service.share_map_peer(from, con.get());
+      	  }
+      	}
       }
     }
     break;
@@ -5136,15 +5139,17 @@ void OSD::handle_osd_ping(MOSDPing *m)
   m->put();
 }
 
+// OSD心跳线程
 void OSD::heartbeat_entry()
 {
   Mutex::Locker l(heartbeat_lock);
   if (is_stopping())
     return;
   while (!heartbeat_stop) {
-    heartbeat();
+    heartbeat();    // 通过前端和后端网络向peer_osd发送心跳消息
 
-    double wait = .5 + ((float)(rand() % 10)/10.0) * (float)cct->_conf->osd_heartbeat_interval;
+    // 0.5 ~ 5.9秒间隔
+    double wait = .5 + ((float)(rand() % 10)/10.0) * (float)cct->_conf->osd_heartbeat_interval; // 6 == osd_heartbeat_interval
     utime_t w;
     w.set_from_double(wait);
     dout(30) << "heartbeat_entry sleeping for " << wait << dendl;
@@ -5155,6 +5160,7 @@ void OSD::heartbeat_entry()
   }
 }
 
+// 心跳超时检测
 void OSD::heartbeat_check()
 {
   assert(heartbeat_lock.is_locked());
@@ -5179,21 +5185,21 @@ void OSD::heartbeat_check()
 	     << " last_rx_back " << p->second.last_rx_back
 	     << " last_rx_front " << p->second.last_rx_front
 	     << dendl;
-    if (p->second.is_unhealthy(cutoff)) {
+    if (p->second.is_unhealthy(cutoff)) { // 前端或者后端心跳20秒超时
       if (p->second.last_rx_back == utime_t() ||
-	  p->second.last_rx_front == utime_t()) {
-	derr << "heartbeat_check: no reply from " << p->second.con_front->get_peer_addr().get_sockaddr()
-	     << " osd." << p->first << " ever on either front or back, first ping sent "
-	     << p->second.first_tx << " (cutoff " << cutoff << ")" << dendl;
-	// fail
-	failure_queue[p->first] = p->second.last_tx;
+	        p->second.last_rx_front == utime_t()) {
+      	derr << "heartbeat_check: no reply from " << p->second.con_front->get_peer_addr().get_sockaddr()
+      	     << " osd." << p->first << " ever on either front or back, first ping sent "
+      	     << p->second.first_tx << " (cutoff " << cutoff << ")" << dendl;
+      	// fail
+      	failure_queue[p->first] = p->second.last_tx;  // 超时的Map表<osd, utime>
       } else {
-	derr << "heartbeat_check: no reply from " << p->second.con_front->get_peer_addr().get_sockaddr()
-	     << " osd." << p->first << " since back " << p->second.last_rx_back
-	     << " front " << p->second.last_rx_front
-	     << " (cutoff " << cutoff << ")" << dendl;
-	// fail
-	failure_queue[p->first] = MIN(p->second.last_rx_back, p->second.last_rx_front);
+	      derr << "heartbeat_check: no reply from " << p->second.con_front->get_peer_addr().get_sockaddr()
+    	     << " osd." << p->first << " since back " << p->second.last_rx_back
+    	     << " front " << p->second.last_rx_front
+    	     << " (cutoff " << cutoff << ")" << dendl;
+    	  // fail
+    	  failure_queue[p->first] = MIN(p->second.last_rx_back, p->second.last_rx_front); // 超时的Map表<osd, utime>
       }
     }
   }
@@ -5238,13 +5244,13 @@ void OSD::heartbeat()
     i->second.con_back->send_message(new MOSDPing(monc->get_fsid(),
 					  service.get_osdmap()->get_epoch(),
 					  MOSDPing::PING, now,
-					  cct->_conf->osd_heartbeat_min_size));
+					  cct->_conf->osd_heartbeat_min_size)); // 后端网络
 
     if (i->second.con_front)
       i->second.con_front->send_message(new MOSDPing(monc->get_fsid(),
 					     service.get_osdmap()->get_epoch(),
 					     MOSDPing::PING, now,
-					  cct->_conf->osd_heartbeat_min_size));
+					  cct->_conf->osd_heartbeat_min_size)); // 前端网络
   }
 
   logger->set(l_osd_hb_to, heartbeat_peers.size());
@@ -5351,7 +5357,7 @@ void OSD::tick_without_osd_lock()
   // might change when doing the monitor report
   if (is_active() || is_waiting_for_healthy()) {
     heartbeat_lock.Lock();
-    heartbeat_check();
+    heartbeat_check();  // 检测心跳超时
     heartbeat_lock.Unlock();
 
     map_lock.get_read();
@@ -5369,7 +5375,7 @@ void OSD::tick_without_osd_lock()
     // value).
     double max = cct->_conf->osd_mon_report_interval_max;
     if (!outstanding_pg_stats.empty() &&
-	(now - stats_ack_timeout) > last_pg_stats_ack) {
+	      (now - stats_ack_timeout) > last_pg_stats_ack) {
       dout(1) << __func__ << " mon hasn't acked PGStats in "
 	      << now - last_pg_stats_ack
 	      << " seconds, reconnecting elsewhere" << dendl;
@@ -5377,9 +5383,9 @@ void OSD::tick_without_osd_lock()
       last_pg_stats_ack = now;  // reset clock
       last_pg_stats_sent = utime_t();
       stats_ack_timeout =
-	MAX(cct->_conf->osd_mon_ack_timeout,
-	    stats_ack_timeout * cct->_conf->osd_stats_ack_timeout_factor);
-      outstanding_pg_stats.clear();
+	      MAX(cct->_conf->osd_mon_ack_timeout,
+	          stats_ack_timeout * cct->_conf->osd_stats_ack_timeout_factor);
+            outstanding_pg_stats.clear();
     }
     if (now - last_pg_stats_sent > max) {
       osd_stat_updated = true;
@@ -5392,11 +5398,11 @@ void OSD::tick_without_osd_lock()
 	       << " stats updates in flight" << dendl;
     } else {
       if (now - last_mon_report > adjusted_min) {
-	dout(20) << __func__ << " stats backoff " << backoff
-		 << " adjusted_min " << adjusted_min << " - sending report"
-		 << dendl;
-        osd_stat_updated = true;
-	report = true;
+      	dout(20) << __func__ << " stats backoff " << backoff
+      		 << " adjusted_min " << adjusted_min << " - sending report"
+      		 << dendl;
+              osd_stat_updated = true;
+      	report = true;
       }
     }
     pg_stat_queue_lock.Unlock();
@@ -5408,9 +5414,9 @@ void OSD::tick_without_osd_lock()
 
       // do any pending reports
       send_full_update();
-      send_failures();
+      send_failures();  // 向Monitor报告心跳异常
       if (osdmap->require_osd_release < CEPH_RELEASE_LUMINOUS) {
-	send_pg_stats(now);
+	      send_pg_stats(now);
       }
     }
     map_lock.put_read();
@@ -5695,7 +5701,7 @@ bool remove_dir(
     &olist,
     &next);
   generic_dout(10) << __func__ << " " << olist << dendl;
-  // default cont to true, this is safe because caller(OSD::RemoveWQ::_process()) 
+  // default cont to true, this is safe because caller(OSD::RemoveWQ::_process())
   // will recheck the answer before it really goes on.
   bool cont = true;
   for (vector<ghobject_t>::iterator i = olist.begin();
@@ -6247,7 +6253,7 @@ void OSD::got_full_map(epoch_t e)
     requested_full_first = requested_full_last = 0;
     return;
   }
-  
+
   requested_full_first = e + 1;
 
   dout(10) << __func__ << " " << e << ", requested " << requested_full_first
@@ -6270,6 +6276,7 @@ void OSD::requeue_failures()
 	   << failure_queue.size() << dendl;
 }
 
+// 向Monitor发送故障OSD
 void OSD::send_failures()
 {
   assert(map_lock.is_locked());
@@ -7238,7 +7245,7 @@ void OSD::ms_fast_dispatch(Message *m)
       session->put();
     }
   }
-  OID_EVENT_TRACE_WITH_MSG(m, "MS_FAST_DISPATCH_END", false); 
+  OID_EVENT_TRACE_WITH_MSG(m, "MS_FAST_DISPATCH_END", false);
 }
 
 void OSD::ms_fast_preprocess(Message *m)
@@ -7852,7 +7859,7 @@ void OSD::handle_osd_map(MOSDMap *m)
   // the OSDMaps will be pinned in the cache and we won't try to read it
   // off of disk. Otherwise these maps will probably not stay in the cache,
   // and reading those OSDMaps before they are actually written can result
-  // in a crash. 
+  // in a crash.
   list<OSDMapRef> pinned_maps;
   if (m->fsid != monc->get_fsid()) {
     dout(0) << "handle_osd_map fsid " << m->fsid << " != "
@@ -8245,7 +8252,7 @@ void OSD::_committed_osd_maps(epoch_t first, epoch_t last, MOSDMap *m)
 	set<int> avoid_ports;
 #if defined(__FreeBSD__)
         // prevent FreeBSD from grabbing the client_messenger port during
-        // rebinding. In which case a cluster_meesneger will connect also 
+        // rebinding. In which case a cluster_meesneger will connect also
 	// to the same port
 	avoid_ports.insert(client_messenger->get_myaddr().get_port());
 #endif
@@ -8273,7 +8280,7 @@ void OSD::_committed_osd_maps(epoch_t first, epoch_t last, MOSDMap *m)
 	if (r != 0) {
 	  do_shutdown = true;  // FIXME: do_restart?
           network_error = true;
-          dout(0) << __func__ << " marked down:" 
+          dout(0) << __func__ << " marked down:"
                   << " rebind hb_front_server_messenger failed" << dendl;
         }
 
@@ -9524,7 +9531,7 @@ void OSD::_remove_pg(PG *pg)
 
   service.cancel_pending_splits_for_parent(pg->info.pgid);
   int tr = store->queue_transaction(
-    pg->osr.get(), std::move(rmt), NULL, 
+    pg->osr.get(), std::move(rmt), NULL,
     new ContainerContext<
       SequencerRef>(pg->osr));
   assert(tr == 0);
@@ -9703,7 +9710,7 @@ void OSD::do_recovery(
 #endif
 
     bool more = pg->start_recovery_ops(reserved_pushes, handle, &started);
-    dout(10) << "do_recovery started " << started << "/" << reserved_pushes 
+    dout(10) << "do_recovery started " << started << "/" << reserved_pushes
 	     << " on " << *pg << dendl;
 
     // If no recovery op is started, don't bother to manipulate the RecoveryCtx
@@ -10714,8 +10721,8 @@ void OSD::ShardedOpWQ::_enqueue_front(pair<spg_t, PGQueueable> item)
   sdata->sdata_lock.Unlock();
 }
 
-namespace ceph { 
-namespace osd_cmds { 
+namespace ceph {
+namespace osd_cmds {
 
 int heap(CephContext& cct, cmdmap_t& cmdmap, Formatter& f, std::ostream& os)
 {
@@ -10723,21 +10730,21 @@ int heap(CephContext& cct, cmdmap_t& cmdmap, Formatter& f, std::ostream& os)
         os << "could not issue heap profiler command -- not using tcmalloc!";
         return -EOPNOTSUPP;
   }
-  
+
   string cmd;
   if (!cmd_getval(&cct, cmdmap, "heapcmd", cmd)) {
         os << "unable to get value for command \"" << cmd << "\"";
        return -EINVAL;
    }
-  
+
   std::vector<std::string> cmd_vec;
   get_str_vec(cmd, cmd_vec);
-  
+
   ceph_heap_profiler_handle_command(cmd_vec, os);
-  
+
   return 0;
 }
- 
+
 }} // namespace ceph::osd_cmds
 
 

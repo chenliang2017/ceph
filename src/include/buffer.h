@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 #ifndef CEPH_BUFFER_H
 #define CEPH_BUFFER_H
@@ -147,7 +147,7 @@ namespace buffer CEPH_BUFFER_API {
   class xio_msg_buffer;
 
   /*
-   * named constructors 
+   * named constructors
    */
   raw* copy(const char *c, unsigned len);
   raw* create(unsigned len);
@@ -172,8 +172,8 @@ namespace buffer CEPH_BUFFER_API {
    * a buffer pointer.  references (a subsequence of) a raw buffer.
    */
   class CEPH_BUFFER_API ptr {
-    raw *_raw;
-    unsigned _off, _len;
+    raw *_raw;              // _raw为原始数据buffer
+    unsigned _off, _len;    // _off为ptr相对_raw起始位置的偏移量; _len为ptr的长度
 
     void release();
 
@@ -350,8 +350,8 @@ namespace buffer CEPH_BUFFER_API {
 
   class CEPH_BUFFER_API list {
     // my private bits
-    std::list<ptr> _buffers;
-    unsigned _len;
+    std::list<ptr> _buffers;    // 所有ptr列表, list对象析构时, 会将_buffers中得ptr全部析构一遍
+    unsigned _len;              // 所有ptr的总长度
     unsigned _memcopy_count; //the total of memcopy using rebuild().
     ptr append_buffer;  // where i put small appends.
 
@@ -390,7 +390,7 @@ namespace buffer CEPH_BUFFER_API {
 
       /// get current iterator offset in buffer::list
       unsigned get_off() const { return off; }
-      
+
       /// get number of bytes remaining from iterator position to the end of the buffer::list
       unsigned get_remaining() const { return bl->length() - off; }
 
@@ -661,6 +661,7 @@ namespace buffer CEPH_BUFFER_API {
     int zero_copy_to_fd(int fd) const;
 
   public:
+    // 构造函数
     // cons/des
     list() : _len(0), _memcopy_count(0), last_p(this) {}
     // cppcheck-suppress noExplicitConstructor
@@ -673,6 +674,8 @@ namespace buffer CEPH_BUFFER_API {
       make_shareable();
     }
     list(list&& other);
+
+    // 重载赋值操作符
     list& operator= (const list& other) {
       if (this != &other) {
         _buffers = other._buffers;
@@ -681,7 +684,6 @@ namespace buffer CEPH_BUFFER_API {
       }
       return *this;
     }
-
     list& operator= (list&& other) {
       _buffers = std::move(other._buffers);
       _len = other._len;
@@ -856,7 +858,7 @@ namespace buffer CEPH_BUFFER_API {
     void append(std::istream& in);
     void append_zero(unsigned len);
     void prepend_zero(unsigned len);
-    
+
     /*
      * get a char
      */

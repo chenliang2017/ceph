@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 
 #ifndef CEPH_MSG_TYPES_H
@@ -48,7 +48,7 @@ public:
   // cons
   entity_name_t() : _type(0), _num(0) { }
   entity_name_t(int t, int64_t n) : _type(t), _num(n) { }
-  explicit entity_name_t(const ceph_entity_name &n) : 
+  explicit entity_name_t(const ceph_entity_name &n) :
     _type(n.type), _num(n.num) { }
 
   // static cons
@@ -57,7 +57,7 @@ public:
   static entity_name_t OSD(int64_t i=NEW) { return entity_name_t(TYPE_OSD, i); }
   static entity_name_t CLIENT(int64_t i=NEW) { return entity_name_t(TYPE_CLIENT, i); }
   static entity_name_t MGR(int64_t i=NEW) { return entity_name_t(TYPE_MGR, i); }
-  
+
   int64_t num() const { return _num; }
   int type() const { return _type; }
   const char *type_str() const {
@@ -118,13 +118,13 @@ public:
 
   static void generate_test_instances(list<entity_name_t*>& o);
 };
-WRITE_CLASS_DENC(entity_name_t)
+WRITE_CLASS_DENC(entity_name_t);
 
-inline bool operator== (const entity_name_t& l, const entity_name_t& r) { 
+inline bool operator== (const entity_name_t& l, const entity_name_t& r) {
   return (l.type() == r.type()) && (l.num() == r.num()); }
-inline bool operator!= (const entity_name_t& l, const entity_name_t& r) { 
+inline bool operator!= (const entity_name_t& l, const entity_name_t& r) {
   return (l.type() != r.type()) || (l.num() != r.num()); }
-inline bool operator< (const entity_name_t& l, const entity_name_t& r) { 
+inline bool operator< (const entity_name_t& l, const entity_name_t& r) {
   return (l.type() < r.type()) || (l.type() == r.type() && l.num() < r.num()); }
 
 inline std::ostream& operator<<(std::ostream& out, const entity_name_t& addr) {
@@ -157,7 +157,7 @@ namespace std {
 
 #if defined(__linux__) || defined(DARWIN) || defined(__FreeBSD__)
 /*
- * encode sockaddr.ss_family as network byte order 
+ * encode sockaddr.ss_family as network byte order
  */
 static inline void encode(const sockaddr_storage& a, bufferlist& bl) {
   struct sockaddr_storage ss = a;
@@ -199,7 +199,7 @@ struct ceph_sockaddr_storage {
     *this = ss;
   }
 } __attribute__ ((__packed__));
-WRITE_CLASS_ENCODER(ceph_sockaddr_storage)
+WRITE_CLASS_ENCODER(ceph_sockaddr_storage);
 
 struct entity_addr_t {
   typedef enum {
@@ -225,7 +225,7 @@ struct entity_addr_t {
     sockaddr_in6 sin6;
   } u;
 
-  entity_addr_t() : type(0), nonce(0) { 
+  entity_addr_t() : type(0), nonce(0) {
     memset(&u, 0, sizeof(u));
   }
   entity_addr_t(__u32 _type, __u32 _nonce) : type(_type), nonce(_nonce) {
@@ -350,7 +350,7 @@ struct entity_addr_t {
       return true;
     return false;
   }
-  
+
   bool is_same_host(const entity_addr_t &o) const {
     if (u.sa.sa_family != o.u.sa.sa_family)
       return false;
@@ -463,7 +463,7 @@ struct entity_addr_t {
 
   static void generate_test_instances(list<entity_addr_t*>& o);
 };
-WRITE_CLASS_ENCODER_FEATURES(entity_addr_t)
+WRITE_CLASS_ENCODER_FEATURES(entity_addr_t);
 
 ostream& operator<<(ostream& out, const entity_addr_t &addr);
 
@@ -526,16 +526,16 @@ struct entity_inst_t {
   void dump(Formatter *f) const;
   static void generate_test_instances(list<entity_inst_t*>& o);
 };
-WRITE_CLASS_ENCODER_FEATURES(entity_inst_t)
+WRITE_CLASS_ENCODER_FEATURES(entity_inst_t);
 
 
-inline bool operator==(const entity_inst_t& a, const entity_inst_t& b) { 
+inline bool operator==(const entity_inst_t& a, const entity_inst_t& b) {
   return a.name == b.name && a.addr == b.addr;
 }
-inline bool operator!=(const entity_inst_t& a, const entity_inst_t& b) { 
+inline bool operator!=(const entity_inst_t& a, const entity_inst_t& b) {
   return a.name != b.name || a.addr != b.addr;
 }
-inline bool operator<(const entity_inst_t& a, const entity_inst_t& b) { 
+inline bool operator<(const entity_inst_t& a, const entity_inst_t& b) {
   return a.name < b.name || (a.name == b.name && a.addr < b.addr);
 }
 inline bool operator<=(const entity_inst_t& a, const entity_inst_t& b) {

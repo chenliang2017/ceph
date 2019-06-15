@@ -26,7 +26,7 @@ mempool::pool_t& mempool::get_pool(mempool::pool_index_t ix)
   // We rely on this array being initialized before any invocation of
   // this function, even if it is called by ctors in other compilation
   // units that are being initialized before this compilation unit.
-  static mempool::pool_t table[num_pools];
+  static mempool::pool_t table[num_pools];  // num_pools值为21, 创建21个mempool::pool_t对象
   return table[ix];
 }
 
@@ -59,6 +59,7 @@ void mempool::set_debug_mode(bool d)
 // --------------------------------------------------------------
 // pool_t
 
+// 该线程池总共申请了多少内存
 size_t mempool::pool_t::allocated_bytes() const
 {
   ssize_t result = 0;
@@ -69,6 +70,7 @@ size_t mempool::pool_t::allocated_bytes() const
   return (size_t) result;
 }
 
+// 该线程池总共执行了多少次内存申请
 size_t mempool::pool_t::allocated_items() const
 {
   ssize_t result = 0;
@@ -82,8 +84,8 @@ size_t mempool::pool_t::allocated_items() const
 void mempool::pool_t::adjust_count(ssize_t items, ssize_t bytes)
 {
   shard_t *shard = pick_a_shard();
-  shard->items += items;
-  shard->bytes += bytes;
+  shard->items += items;  // 本次调整的对象数, 申请内存值为+1, 释放内存值为-1
+  shard->bytes += bytes;  // 本次调整的内存长度
 }
 
 void mempool::pool_t::get_stats(

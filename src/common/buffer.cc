@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 
 #include <atomic>
@@ -169,9 +169,9 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
   class buffer::raw {
   public:
-    char *data;
-    unsigned len;
-    std::atomic<unsigned> nref { 0 };
+    char *data;                       // 数据指针, 依赖不同的派生类实现内存申请
+    unsigned len;                     // 数据长度
+    std::atomic<unsigned> nref { 0 }; // 引用计数
     int mempool;
 
     mutable std::atomic_flag crc_spinlock = ATOMIC_FLAG_INIT;
@@ -186,30 +186,27 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(1, len);
     }
     virtual ~raw() {
-      mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(
-	-1, -(int)len);
+      mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(-1, -(int)len);
     }
 
     void _set_len(unsigned l) {
-      mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(
-	-1, -(int)len);
+      mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(-1, -(int)len);
       len = l;
       mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(1, len);
     }
 
     void reassign_to_mempool(int pool) {
       if (pool == mempool) {
-	return;
+	      return;
       }
-      mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(
-	-1, -(int)len);
+      mempool::get_pool(mempool::pool_index_t(mempool)).adjust_count(-1, -(int)len);
       mempool = pool;
       mempool::get_pool(mempool::pool_index_t(pool)).adjust_count(1, len);
     }
 
     void try_assign_to_mempool(int pool) {
       if (mempool == mempool::mempool_buffer_anon) {
-	reassign_to_mempool(pool);
+	      reassign_to_mempool(pool);
       }
     }
 
@@ -284,7 +281,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     raw_combined(char *dataptr, unsigned l, unsigned align,
 		 int mempool)
       : raw(dataptr, l, mempool),
-	alignment(align) {
+	      alignment(align) {
       inc_total_alloc(len);
       inc_history_alloc(len);
     }
@@ -297,11 +294,12 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
     static raw_combined *create(unsigned len,
 				unsigned align,
-				int mempool = mempool::mempool_buffer_anon) {
+				int mempool = mempool::mempool_buffer_anon)
+    {
       if (!align)
-	align = sizeof(size_t);
+	      align = sizeof(size_t);
       size_t rawlen = ROUND_UP_TO(sizeof(buffer::raw_combined),
-				  alignof(buffer::raw_combined));
+				                          alignof(buffer::raw_combined));
       size_t datalen = ROUND_UP_TO(len, alignof(buffer::raw_combined));
 
 #ifdef DARWIN
@@ -310,10 +308,10 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       char *ptr = 0;
       int r = ::posix_memalign((void**)(void*)&ptr, align, rawlen + datalen);
       if (r)
-	throw bad_alloc();
+	      throw bad_alloc();
 #endif /* DARWIN */
       if (!ptr)
-	throw bad_alloc();
+	      throw bad_alloc();
 
       // actual data first, since it has presumably larger alignment restriction
       // then put the raw_combined at the end
@@ -332,11 +330,11 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
     explicit raw_malloc(unsigned l) : raw(l) {
       if (len) {
-	data = (char *)malloc(len);
+	      data = (char *)malloc(len);
         if (!data)
           throw bad_alloc();
       } else {
-	data = 0;
+	      data = 0;
       }
       inc_total_alloc(len);
       inc_history_alloc(len);
@@ -364,7 +362,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     explicit raw_mmap_pages(unsigned l) : raw(l) {
       data = (char*)::mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, -1, 0);
       if (!data)
-	throw bad_alloc();
+	      throw bad_alloc();
       inc_total_alloc(len);
       inc_history_alloc(len);
       bdout << "raw_mmap " << this << " alloc " << (void *)data << " " << l << " " << buffer::get_total_alloc() << bendl;
@@ -392,10 +390,10 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 #else
       int r = ::posix_memalign((void**)(void*)&data, align, len);
       if (r)
-	throw bad_alloc();
+	      throw bad_alloc();
 #endif /* DARWIN */
       if (!data)
-	throw bad_alloc();
+	      throw bad_alloc();
       inc_total_alloc(len);
       inc_history_alloc(len);
       bdout << "raw_posix_aligned " << this << " alloc " << (void *)data << " l=" << l << ", align=" << align << " total_alloc=" << buffer::get_total_alloc() << bendl;
@@ -421,9 +419,9 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       realdata = new char[len+align-1];
       unsigned off = ((unsigned)realdata) & (align-1);
       if (off)
-	data = realdata + align - off;
+	      data = realdata + align - off;
       else
-	data = realdata;
+	      data = realdata;
       inc_total_alloc(len+align-1);
       inc_history_alloc(len+align-1);
       //cout << "hack aligned " << (unsigned)data
@@ -449,31 +447,31 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     explicit raw_pipe(unsigned len) : raw(len), source_consumed(false) {
       size_t max = get_max_pipe_size();
       if (len > max) {
-	bdout << "raw_pipe: requested length " << len
-	      << " > max length " << max << bendl;
-	throw malformed_input("length larger than max pipe size");
+      	bdout << "raw_pipe: requested length " << len
+      	      << " > max length " << max << bendl;
+      	throw malformed_input("length larger than max pipe size");
       }
       pipefds[0] = -1;
       pipefds[1] = -1;
 
       int r;
       if (::pipe(pipefds) == -1) {
-	r = -errno;
-	bdout << "raw_pipe: error creating pipe: " << cpp_strerror(r) << bendl;
-	throw error_code(r);
+      	r = -errno;
+      	bdout << "raw_pipe: error creating pipe: " << cpp_strerror(r) << bendl;
+      	throw error_code(r);
       }
 
       r = set_nonblocking(pipefds);
       if (r < 0) {
-	bdout << "raw_pipe: error setting nonblocking flag on temp pipe: "
-	      << cpp_strerror(r) << bendl;
-	throw error_code(r);
+      	bdout << "raw_pipe: error setting nonblocking flag on temp pipe: "
+      	      << cpp_strerror(r) << bendl;
+      	throw error_code(r);
       }
 
       r = set_pipe_size(pipefds, len);
       if (r < 0) {
-	bdout << "raw_pipe: could not set pipe size" << bendl;
-	// continue, since the pipe should become large enough as needed
+      	bdout << "raw_pipe: could not set pipe size" << bendl;
+      	// continue, since the pipe should become large enough as needed
       }
 
       inc_total_alloc(len);
@@ -484,7 +482,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
     ~raw_pipe() override {
       if (data)
-	free(data);
+	      free(data);
       close_pipe(pipefds);
       dec_total_alloc(len);
       bdout << "raw_pipe " << this << " free " << (void *)data << " "
@@ -499,9 +497,9 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       int flags = SPLICE_F_NONBLOCK;
       ssize_t r = safe_splice(fd, off, pipefds[1], NULL, len, flags);
       if (r < 0) {
-	bdout << "raw_pipe: error splicing into pipe: " << cpp_strerror(r)
-	      << bendl;
-	return r;
+      	bdout << "raw_pipe: error splicing into pipe: " << cpp_strerror(r)
+      	      << bendl;
+      	return r;
       }
       // update length with actual amount read
       _set_len(r);
@@ -513,9 +511,9 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       int flags = SPLICE_F_NONBLOCK;
       ssize_t r = safe_splice_exact(pipefds[0], NULL, fd, offset, len, flags);
       if (r < 0) {
-	bdout << "raw_pipe: error splicing from pipe to fd: "
-	      << cpp_strerror(r) << bendl;
-	return r;
+      	bdout << "raw_pipe: error splicing from pipe to fd: "
+      	      << cpp_strerror(r) << bendl;
+      	return r;
       }
       source_consumed = true;
       return 0;
@@ -529,7 +527,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
     char *get_data() override {
       if (data)
-	return data;
+	      return data;
       return copy_pipe(pipefds);
     }
 
@@ -537,14 +535,14 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     int set_pipe_size(int *fds, long length) {
 #ifdef CEPH_HAVE_SETPIPE_SZ
       if (::fcntl(fds[1], F_SETPIPE_SZ, length) == -1) {
-	int r = -errno;
-	if (r == -EPERM) {
-	  // pipe limit must have changed - EPERM means we requested
-	  // more than the maximum size as an unprivileged user
-	  update_max_pipe_size();
-	  throw malformed_input("length larger than new max pipe size");
-	}
-	return r;
+      	int r = -errno;
+      	if (r == -EPERM) {
+      	  // pipe limit must have changed - EPERM means we requested
+      	  // more than the maximum size as an unprivileged user
+      	  update_max_pipe_size();
+      	  throw malformed_input("length larger than new max pipe size");
+      	}
+      	return r;
       }
 #endif
       return 0;
@@ -552,17 +550,17 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
     int set_nonblocking(int *fds) {
       if (::fcntl(fds[0], F_SETFL, O_NONBLOCK) == -1)
-	return -errno;
+	      return -errno;
       if (::fcntl(fds[1], F_SETFL, O_NONBLOCK) == -1)
-	return -errno;
+	      return -errno;
       return 0;
     }
 
     static void close_pipe(const int *fds) {
       if (fds[0] >= 0)
-	VOID_TEMP_FAILURE_RETRY(::close(fds[0]));
+	      VOID_TEMP_FAILURE_RETRY(::close(fds[0]));
       if (fds[1] >= 0)
-	VOID_TEMP_FAILURE_RETRY(::close(fds[1]));
+	      VOID_TEMP_FAILURE_RETRY(::close(fds[1]));
     }
     char *copy_pipe(int *fds) {
       /* preserve original pipe contents by copying into a temporary
@@ -575,41 +573,41 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       assert(fds[0] >= 0);
 
       if (::pipe(tmpfd) == -1) {
-	r = -errno;
-	bdout << "raw_pipe: error creating temp pipe: " << cpp_strerror(r)
-	      << bendl;
-	throw error_code(r);
+      	r = -errno;
+      	bdout << "raw_pipe: error creating temp pipe: " << cpp_strerror(r)
+      	      << bendl;
+      	throw error_code(r);
       }
-      auto sg = make_scope_guard([=] { close_pipe(tmpfd); });	  
+      auto sg = make_scope_guard([=] { close_pipe(tmpfd); });
       r = set_nonblocking(tmpfd);
       if (r < 0) {
-	bdout << "raw_pipe: error setting nonblocking flag on temp pipe: "
-	      << cpp_strerror(r) << bendl;
-	throw error_code(r);
+      	bdout << "raw_pipe: error setting nonblocking flag on temp pipe: "
+      	      << cpp_strerror(r) << bendl;
+      	throw error_code(r);
       }
       r = set_pipe_size(tmpfd, len);
       if (r < 0) {
-	bdout << "raw_pipe: error setting pipe size on temp pipe: "
-	      << cpp_strerror(r) << bendl;
+      	bdout << "raw_pipe: error setting pipe size on temp pipe: "
+      	      << cpp_strerror(r) << bendl;
       }
       int flags = SPLICE_F_NONBLOCK;
       if (::tee(fds[0], tmpfd[1], len, flags) == -1) {
-	r = errno;
-	bdout << "raw_pipe: error tee'ing into temp pipe: " << cpp_strerror(r)
-	      << bendl;
-	throw error_code(r);
+      	r = errno;
+      	bdout << "raw_pipe: error tee'ing into temp pipe: " << cpp_strerror(r)
+      	      << bendl;
+      	throw error_code(r);
       }
       data = (char *)malloc(len);
       if (!data) {
-	throw bad_alloc();
+	      throw bad_alloc();
       }
       r = safe_read(tmpfd[0], data, len);
       if (r < (ssize_t)len) {
-	bdout << "raw_pipe: error reading from temp pipe:" << cpp_strerror(r)
-	      << bendl;
-	free(data);
-	data = NULL;
-	throw error_code(r);
+      	bdout << "raw_pipe: error reading from temp pipe:" << cpp_strerror(r)
+      	      << bendl;
+      	free(data);
+      	data = NULL;
+      	throw error_code(r);
       }
       return data;
     }
@@ -627,9 +625,9 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
     explicit raw_char(unsigned l) : raw(l) {
       if (len)
-	data = new char[len];
+	      data = new char[len];
       else
-	data = 0;
+	      data = 0;
       inc_total_alloc(len);
       inc_history_alloc(len);
       bdout << "raw_char " << this << " alloc " << (void *)data << " " << l << " " << buffer::get_total_alloc() << bendl;
@@ -673,9 +671,9 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
     explicit raw_unshareable(unsigned l) : raw(l) {
       if (len)
-	data = new char[len];
+	      data = new char[len];
       else
-	data = 0;
+	      data = 0;
     }
     raw_unshareable(unsigned l, char *b) : raw(b, l) {
     }
@@ -842,6 +840,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     return new raw_unshareable(len);
   }
 
+  // 构造函数中, raw的引用计数加1; 析构时减1
   buffer::ptr::ptr(raw *r) : _raw(r), _off(0), _len(r->len)   // no lock needed; this is an unref raw.
   {
     r->nref++;
@@ -885,7 +884,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       p._raw->nref++;
       bdout << "ptr " << this << " get " << _raw << bendl;
     }
-    buffer::raw *raw = p._raw; 
+    buffer::raw *raw = p._raw;
     release();
     if (raw) {
       _raw = raw;
@@ -946,15 +945,16 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     other._len = l;
   }
 
+  // 析构函数会调用
   void buffer::ptr::release()
   {
     if (_raw) {
       bdout << "ptr " << this << " release " << _raw << bendl;
-      if (--_raw->nref == 0) {
-	//cout << "hosing raw " << (void*)_raw << " len " << _raw->len << std::endl;
+      if (--_raw->nref == 0) {  // 引用计数减一, 为0时, 表示自己是最后一个使用者
+	      //cout << "hosing raw " << (void*)_raw << " len " << _raw->len << std::endl;
         ANNOTATE_HAPPENS_AFTER(&_raw->nref);
         ANNOTATE_HAPPENS_BEFORE_FORGET_ALL(&_raw->nref);
-	delete _raw;  // dealloc old (if any)
+	      delete _raw;  // dealloc old (if any) // 没有使用者时, 删除内存
       } else {
         ANNOTATE_HAPPENS_BEFORE(&_raw->nref);
       }
@@ -1478,18 +1478,18 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     while (len > 0) {
       if (p == ls->end())
 	throw end_of_buffer();
-      
+
       unsigned howmuch = p->length() - p_off;
       if (len < howmuch)
 	howmuch = len;
       p->copy_in(p_off, howmuch, src, crc_reset);
-	
+
       src += howmuch;
       len -= howmuch;
       advance(howmuch);
     }
   }
-  
+
   void buffer::list::iterator::copy_in(unsigned len, const list& otherl)
   {
     if (p == ls->end())
@@ -1601,7 +1601,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
   {
     for (std::list<ptr>::const_iterator it = _buffers.begin();
 	 it != _buffers.end();
-	 ++it) 
+	 ++it)
       if (!it->is_aligned(align))
 	return false;
     return true;
@@ -1611,7 +1611,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
   {
     for (std::list<ptr>::const_iterator it = _buffers.begin();
 	 it != _buffers.end();
-	 ++it) 
+	 ++it)
       if (!it->is_n_align_sized(align))
 	return false;
     return true;
@@ -1784,7 +1784,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
   {
     return rebuild_aligned_size_and_memory(align, align);
   }
-  
+
   bool buffer::list::rebuild_aligned_size_and_memory(unsigned align_size,
 						    unsigned align_memory,
 						    unsigned max_buffers)
@@ -1807,7 +1807,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
         ++p;
         continue;
       }
-      
+
       // consolidate unaligned items, until we get something that is sized+aligned
       list unaligned;
       unsigned offset = 0;
@@ -1836,7 +1836,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
     return  (old_memcopy_count != _memcopy_count);
   }
-  
+
   bool buffer::list::rebuild_page_aligned()
   {
    return  rebuild_aligned(CEPH_PAGE_SIZE);
@@ -1894,7 +1894,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
   {
     if (off + len > length())
       throw end_of_buffer();
-    if (last_p.get_off() != off) 
+    if (last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy(len, dest);
   }
@@ -1903,18 +1903,18 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
   {
     if (off + len > length())
       throw end_of_buffer();
-    if (last_p.get_off() != off) 
+    if (last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy(len, dest);
   }
 
   void buffer::list::copy(unsigned off, unsigned len, std::string& dest) const
   {
-    if (last_p.get_off() != off) 
+    if (last_p.get_off() != off)
       last_p.seek(off);
     return last_p.copy(len, dest);
   }
-    
+
   void buffer::list::copy_in(unsigned off, unsigned len, const char *src)
   {
     copy_in(off, len, src, true);
@@ -1924,15 +1924,15 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
   {
     if (off + len > length())
       throw end_of_buffer();
-    
-    if (last_p.get_off() != off) 
+
+    if (last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy_in(len, src, crc_reset);
   }
 
   void buffer::list::copy_in(unsigned off, unsigned len, const list& src)
   {
-    if (last_p.get_off() != off) 
+    if (last_p.get_off() != off)
       last_p.seek(off);
     last_p.copy_in(len, src);
   }
@@ -1965,7 +1965,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       }
       if (len == 0)
         break;  // done!
-      
+
       // make a new append_buffer.  fill out a complete page, factoring in the
       // raw_combined overhead.
       size_t need = ROUND_UP_TO(len, sizeof(size_t)) + sizeof(raw_combined);
@@ -2010,7 +2010,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     _len += bl._len;
     for (std::list<ptr>::const_iterator p = bl._buffers.begin();
 	 p != bl._buffers.end();
-	 ++p) 
+	 ++p)
       _buffers.push_back(*p);
   }
 
@@ -2032,7 +2032,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     _len += len;
     _buffers.emplace_front(std::move(bp));
   }
-  
+
   void buffer::list::append_zero(unsigned len)
   {
     ptr bp(len);
@@ -2040,7 +2040,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
     append(std::move(bp));
   }
 
-  
+
   /*
    * get a char
    */
@@ -2048,7 +2048,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
   {
     if (n >= _len)
       throw end_of_buffer();
-    
+
     for (std::list<ptr>::const_iterator p = _buffers.begin();
 	 p != _buffers.end();
 	 ++p) {
@@ -2149,7 +2149,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       ++curbuf;
     }
     assert(len == 0 || curbuf != other._buffers.end());
-    
+
     while (len > 0) {
       // partial?
       if (off + len < curbuf->length()) {
@@ -2158,7 +2158,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 	_len += len;
 	break;
       }
-      
+
       // through end
       //cout << "copying end (all?) of " << *curbuf << std::endl;
       unsigned howmuch = curbuf->length() - off;
@@ -2181,7 +2181,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 
     assert(len > 0);
     //cout << "splice off " << off << " len " << len << " ... mylen = " << length() << std::endl;
-      
+
     // skip off
     std::list<ptr>::iterator curbuf = _buffers.begin();
     while (off > 0) {
@@ -2197,7 +2197,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 	break;
       }
     }
-    
+
     if (off) {
       // add a reference to the front bit
       //  insert it before curbuf (which we'll hose)
@@ -2205,12 +2205,12 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       _buffers.insert( curbuf, ptr( *curbuf, 0, off ) );
       _len += off;
     }
-    
+
     while (len > 0) {
       // partial?
       if (off + len < (*curbuf).length()) {
 	//cout << "keeping end of " << *curbuf << ", losing first " << off+len << std::endl;
-	if (claim_by) 
+	if (claim_by)
 	  claim_by->append( *curbuf, off, len );
 	(*curbuf).set_offset( off+len + (*curbuf).offset() );    // ignore beginning big
 	(*curbuf).set_length( (*curbuf).length() - (len+off) );
@@ -2218,20 +2218,20 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
 	//cout << " now " << *curbuf << std::endl;
 	break;
       }
-      
+
       // hose though the end
       unsigned howmuch = (*curbuf).length() - off;
       //cout << "discarding " << howmuch << " of " << *curbuf << std::endl;
-      if (claim_by) 
+      if (claim_by)
 	claim_by->append( *curbuf, off, howmuch );
       _len -= (*curbuf).length();
       _buffers.erase( curbuf++ );
       len -= howmuch;
       off = 0;
     }
-      
+
     // splice in *replace (implement me later?)
-    
+
     last_p = begin();  // just in case we were in the removed region.
   }
 
@@ -2239,8 +2239,8 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
   {
     list s;
     s.substr_of(*this, off, len);
-    for (std::list<ptr>::const_iterator it = s._buffers.begin(); 
-	 it != s._buffers.end(); 
+    for (std::list<ptr>::const_iterator it = s._buffers.begin();
+	 it != s._buffers.end();
 	 ++it)
       if (it->length())
 	out.write(it->c_str(), it->length());
@@ -2253,7 +2253,7 @@ static std::atomic_flag buffer_debug_lock = ATOMIC_FLAG_INIT;
       len -= l;
       }*/
   }
-  
+
 void buffer::list::encode_base64(buffer::list& o)
 {
   bufferptr bp(length() * 4 / 3 + 3);
@@ -2277,7 +2277,7 @@ void buffer::list::decode_base64(buffer::list& e)
   push_back(std::move(bp));
 }
 
-  
+
 
 int buffer::list::read_file(const char *fn, std::string *error)
 {
@@ -2644,7 +2644,7 @@ void buffer::list::hexdump(std::ostream &out, bool trailing_newline) const
 	out << ' ';
       out << "   ";
     }
-    
+
     out << "  |";
     for (i=0; i<per && o+i<length(); i++) {
       char c = (*this)[o+i];

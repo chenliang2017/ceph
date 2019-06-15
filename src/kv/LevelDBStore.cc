@@ -101,7 +101,7 @@ int LevelDBStore::do_open(ostream &out, bool create_if_missing)
     ceph_logger = new CephLevelDBLogger(g_ceph_context);
     ldoptions.info_log = ceph_logger;
   }
-  
+
   if (options.log_file.length()) {
     leveldb::Env *env = leveldb::Env::Default();
     env->NewLogger(options.log_file, &ldoptions.info_log);
@@ -213,7 +213,7 @@ void LevelDBStore::LevelDBTransactionImpl::set(
   } else if ((bllen <= 32 * 1024) && (bllen > 0)) {
     // 2+ bufferptrs that are not contiguopus
     // allocate buffer on stack and copy bl contents to that buffer
-    // make sure the buffer isn't too large or we might crash here...    
+    // make sure the buffer isn't too large or we might crash here...
     char* slicebuf = (char*) alloca(bllen);
     leveldb::Slice newslice(slicebuf, bllen);
     std::list<buffer::ptr>::const_iterator pb;
@@ -221,7 +221,7 @@ void LevelDBStore::LevelDBTransactionImpl::set(
       size_t ptrlen = (*pb).length();
       memcpy((void*)slicebuf, (*pb).c_str(), ptrlen);
       slicebuf += ptrlen;
-    } 
+    }
     bat.Put(leveldb::Slice(key), newslice);
   } else {
     // 2+ bufferptrs that are not contiguous, and enormous in size
@@ -280,7 +280,7 @@ int LevelDBStore::get(
   return 0;
 }
 
-int LevelDBStore::get(const string &prefix, 
+int LevelDBStore::get(const string &prefix,
       const string &key,
       bufferlist *out)
 {
@@ -320,7 +320,7 @@ bufferlist LevelDBStore::to_bufferlist(leveldb::Slice in)
 int LevelDBStore::split_key(leveldb::Slice in, string *prefix, string *key)
 {
   size_t prefix_len = 0;
-  
+
   // Find separator inside Slice
   char* separator = (char*) memchr(in.data(), 0, in.size());
   if (separator == NULL)

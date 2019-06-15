@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 
 #include <sys/types.h>
@@ -400,7 +400,7 @@ flushjournal_out:
     }
     exit(0);
   }
-  
+
   string magic;
   uuid_d cluster_fsid, osd_fsid;
   int w;
@@ -531,6 +531,7 @@ flushjournal_out:
 
   ms_objecter->set_default_policy(Messenger::Policy::lossy_client(CEPH_FEATURE_OSDREPLYMUX));
 
+  // ÒµÎñÍø¶Î
   r = ms_public->bind(g_conf->public_addr);
   if (r < 0)
     exit(1);
@@ -546,6 +547,7 @@ flushjournal_out:
   }
 
   // hb back should bind to same ip as cluster_addr (if specified)
+  // ´æ´¢Íø¶Î
   entity_addr_t hb_back_addr = g_conf->osd_heartbeat_addr;
   if (hb_back_addr.is_blank_ip()) {
     hb_back_addr = g_conf->cluster_addr;

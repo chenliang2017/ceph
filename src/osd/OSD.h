@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 
 #ifndef CEPH_OSD_H
@@ -30,8 +30,8 @@
 #include "mgr/MgrClient.h"
 
 #include "os/ObjectStore.h"
-#include "OSDCap.h" 
- 
+#include "OSDCap.h"
+
 #include "auth/KeyRing.h"
 #include "osd/ClassHandler.h"
 
@@ -1022,7 +1022,7 @@ public:
   void pg_stat_queue_dequeue(PG *pg);
 
   void init();
-  void final_init();  
+  void final_init();
   void start_shutdown();
   void shutdown_reserver();
   void shutdown();
@@ -1258,7 +1258,7 @@ protected:
 public:
   ClassHandler  *class_handler = nullptr;
   int get_nodeid() { return whoami; }
-  
+
   static ghobject_t get_osdmap_pobject_name(epoch_t epoch) {
     char foo[20];
     snprintf(foo, sizeof(foo), "osdmap.%d", epoch);
@@ -1284,7 +1284,7 @@ public:
     getline(ss, s);
     return ghobject_t(hobject_t(sobject_t(object_t(s.c_str()), 0)));
   }
-  
+
   static ghobject_t make_pg_biginfo_oid(spg_t pg) {
     stringstream ss;
     ss << "pginfo_" << pg;
@@ -1319,7 +1319,7 @@ public:
    * Return value: CompatSet of all supported features
    */
   static CompatSet get_osd_compat_set();
-  
+
 
 private:
   class C_Tick;
@@ -1495,6 +1495,8 @@ private:
 	    (last_rx_back == utime_t() && (last_tx == utime_t() ||
 					   first_tx > cutoff))));
     }
+
+    // 前后端均未20秒超时
     bool is_healthy(utime_t cutoff) const {
       return last_rx_front > cutoff && last_rx_back > cutoff;
     }
@@ -1509,7 +1511,7 @@ private:
   map<int, int> debug_heartbeat_drops_remaining;
   Cond heartbeat_cond;
   bool heartbeat_stop;
-  std::atomic_bool heartbeat_need_update;   
+  std::atomic_bool heartbeat_need_update;
   map<int,HeartbeatInfo> heartbeat_peers;  ///< map of osd id to HeartbeatInfo
   utime_t last_mon_heartbeat;
   Messenger *hb_front_client_messenger;
@@ -1518,7 +1520,7 @@ private:
   Messenger *hb_back_server_messenger;
   utime_t last_heartbeat_resample;   ///< last time we chose random peers in waiting-for-healthy state
   double daily_loadavg;
-  
+
   void _add_heartbeat_peer(int p);
   void _remove_heartbeat_peer(int p);
   bool heartbeat_reset(Connection *con);
@@ -1594,13 +1596,13 @@ public:
 private:
   // -- waiters --
   list<OpRequestRef> finished;
-  
+
   void take_waiters(list<OpRequestRef>& ls) {
     assert(osd_lock.is_locked());
     finished.splice(finished.end(), ls);
   }
   void do_waiters();
-  
+
   // -- op tracking --
   OpTracker op_tracker;
   void check_ops_in_flight();
@@ -1737,7 +1739,7 @@ private:
 		 "OSD:ShardedOpWQ:order:", i);
 	ShardData* one_shard = new ShardData(
 	  lock_name, order_lock,
-	  osd->cct->_conf->osd_op_pq_max_tokens_per_priority, 
+	  osd->cct->_conf->osd_op_pq_max_tokens_per_priority,
 	  osd->cct->_conf->osd_op_pq_min_cost, osd->cct, osd->op_queue);
 	shard_list.push_back(one_shard);
       }
@@ -1769,11 +1771,11 @@ private:
 
     /// requeue an old item (at the front of the line)
     void _enqueue_front(pair <spg_t, PGQueueable> item) override;
-      
+
     void return_waiting_threads() override {
       for(uint32_t i = 0; i < num_shards; i++) {
 	ShardData* sdata = shard_list[i];
-	assert (NULL != sdata); 
+	assert (NULL != sdata);
 	sdata->sdata_lock.Lock();
 	sdata->sdata_cond.Signal();
 	sdata->sdata_lock.Unlock();
@@ -1823,7 +1825,7 @@ private:
     };
 
     bool is_shard_empty(uint32_t thread_index) override {
-      uint32_t shard_index = thread_index % num_shards; 
+      uint32_t shard_index = thread_index % num_shards;
       ShardData* sdata = shard_list[shard_index];
       assert(NULL != sdata);
       Mutex::Locker l(sdata->sdata_op_ordering_lock);
@@ -2080,7 +2082,7 @@ protected:
   bool _is_healthy();
 
   void send_full_update();
-  
+
   friend struct C_OSD_GetVersion;
 
   // -- alive --
@@ -2458,7 +2460,7 @@ private:
 public:
   static int peek_meta(ObjectStore *store, string& magic,
 		       uuid_d& cluster_fsid, uuid_d& osd_fsid, int& whoami);
-  
+
 
   // startup/shutdown
   int pre_init();

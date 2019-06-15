@@ -144,35 +144,35 @@ namespace mempool {
 // define memory pools
 
 #define DEFINE_MEMORY_POOLS_HELPER(f) \
-  f(bloom_filter)		      \
-  f(bluestore_alloc)		      \
-  f(bluestore_cache_data)	      \
-  f(bluestore_cache_onode)	      \
-  f(bluestore_cache_other)	      \
-  f(bluestore_fsck)		      \
-  f(bluestore_txc)		      \
-  f(bluestore_writing_deferred)	      \
-  f(bluestore_writing)		      \
-  f(bluefs)			      \
-  f(buffer_anon)		      \
-  f(buffer_meta)		      \
-  f(osd)			      \
-  f(osd_mapbl)			      \
-  f(osd_pglog)			      \
-  f(osdmap)			      \
-  f(osdmap_mapping)		      \
-  f(pgmap)			      \
-  f(mds_co)			      \
-  f(unittest_1)			      \
-  f(unittest_2)
+  f(bloom_filter)		      \                 // mempool_bloom_filter                     0
+  f(bluestore_alloc)		      \             // mempool_bluestore_alloc                  1
+  f(bluestore_cache_data)	      \             // mempool_bluestore_cache_data             2
+  f(bluestore_cache_onode)	      \             // mempool_bluestore_cache_onode            3
+  f(bluestore_cache_other)	      \             // mempool_bluestore_cache_other            4
+  f(bluestore_fsck)		      \                 // mempool_bluestore_fsck                   5
+  f(bluestore_txc)		      \                 // mempool_bluestore_txc                    6
+  f(bluestore_writing_deferred)	      \         // mempool_bluestore_writing_deferred       7
+  f(bluestore_writing)		      \             // mempool_bluestore_writing                8
+  f(bluefs)			      \                     // mempool_bluefs                           9
+  f(buffer_anon)		      \                 // mempool_buffer_anon                      10
+  f(buffer_meta)		      \                 // mempool_buffer_meta                      11
+  f(osd)			      \                     // mempool_osd                              12
+  f(osd_mapbl)			      \                 // mempool_osd_mapbl                        13
+  f(osd_pglog)			      \                 // mempool_osd_pglog                        14
+  f(osdmap)			      \                     // mempool_osdmap                           15
+  f(osdmap_mapping)		      \                 // mempool_osdmap_mapping                   16
+  f(pgmap)			      \                     // mempool_pgmap                            17
+  f(mds_co)			      \                     // mempool_mds_co                           18
+  f(unittest_1)			      \                 // mempool_unittest_1                       19
+  f(unittest_2)                                 // mempool_unittest_2                       20
 
 
 // give them integer ids
 #define P(x) mempool_##x,
 enum pool_index_t {
-  DEFINE_MEMORY_POOLS_HELPER(P)
-  num_pools        // Must be last.
-};
+  DEFINE_MEMORY_POOLS_HELPER(P)     // 宏展开: mempool_bloom_filter
+  num_pools        // Must be last.            mempool_bluestore_alloc
+};                                  ......
 #undef P
 
 extern bool debug_mode;
@@ -187,13 +187,14 @@ enum {
   num_shard_bits = 5
 };
 enum {
-  num_shards = 1 << num_shard_bits
+  num_shards = 1 << num_shard_bits  // 32
 };
 
 // align shard to a cacheline
+// 128字节内存块
 struct shard_t {
-  std::atomic<size_t> bytes = {0};
-  std::atomic<size_t> items = {0};
+  std::atomic<size_t> bytes = {0};  // 字节长度
+  std::atomic<size_t> items = {0};  // 对象数量, 每执行一次内存申请, items加1
   char __padding[128 - sizeof(std::atomic<size_t>)*2];
 } __attribute__ ((aligned (128)));
 
@@ -230,7 +231,7 @@ struct type_info_hash {
 };
 
 class pool_t {
-  shard_t shard[num_shards];
+  shard_t shard[num_shards];    // 32*128 bytes = 4Mb
 
   mutable std::mutex lock;  // only used for types list
   std::unordered_map<const char *, type_t> type_map;
@@ -244,6 +245,7 @@ public:
 
   void adjust_count(ssize_t items, ssize_t bytes);
 
+  // 根据线程号选择一个shard, 用该shard记录该线程在该内存池中的内存使用情况
   shard_t* pick_a_shard() {
     // Dirt cheap, see:
     //   http://fossies.org/dox/glibc-2.24/pthread__self_8c_source.html
