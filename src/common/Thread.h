@@ -21,11 +21,11 @@
 
 class Thread {
  private:
-  pthread_t thread_id;
-  pid_t pid;
-  int ioprio_class, ioprio_priority;
-  int cpuid;
-  const char *thread_name;
+  pthread_t thread_id;                  // 线程ID
+  pid_t pid;                            // 进程ID
+  int ioprio_class, ioprio_priority;    //
+  int cpuid;                            // 线程所在CPU的ID
+  const char *thread_name;              // 线程名称
 
   void *entry_wrapper();
 
@@ -34,10 +34,11 @@ class Thread {
   Thread& operator=(const Thread&) = delete;
 
   Thread();
-  virtual ~Thread();
+  virtual ~Thread();    // 基类的析构函数为虚函数
 
  protected:
   virtual void *entry() = 0;
+  // 虚函数, 线程入口函数, 派生类继承实现
 
  private:
   static void *_entry_func(void *arg);

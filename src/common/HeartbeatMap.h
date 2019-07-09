@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 
 #ifndef CEPH_HEARTBEATMAP_H
@@ -32,17 +32,17 @@ namespace ceph {
  *
  * Maintain a set of handles for internal subsystems to periodically
  * check in with a health check and timeout.  Each user can register
- * and get a handle they can use to set or reset a timeout.  
+ * and get a handle they can use to set or reset a timeout.
  *
  * A simple is_healthy() method checks for any users who are not within
  * their grace period for a heartbeat.
  */
 
 struct heartbeat_handle_d {
-  const std::string name;
-  pthread_t thread_id;
+  const std::string name;   // thread和线程ID组合形成的字符串: thread xxxxx
+  pthread_t thread_id;      // 线程ID
   std::atomic<unsigned> timeout = { 0 }, suicide_timeout = { 0 };
-  time_t grace, suicide_grace;
+  time_t grace, suicide_grace;  // grace为超时时间, suicide_grace为自杀超时时间
   std::list<heartbeat_handle_d*>::iterator list_item;
 
   explicit heartbeat_handle_d(const std::string& n)

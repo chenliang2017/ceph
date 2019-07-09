@@ -15,8 +15,8 @@
 class PrebufferedStreambuf
   : public std::basic_streambuf<char, std::basic_string<char>::traits_type>
 {
-  char *m_buf;
-  size_t m_buf_len;
+  char *m_buf;              //
+  size_t m_buf_len;         //
   std::string m_overflow;
 
   typedef std::char_traits<char> traits_ty;

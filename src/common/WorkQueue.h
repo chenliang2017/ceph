@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 
 #ifndef CEPH_WORKQUEUE_H
@@ -23,12 +23,27 @@
 
 class CephContext;
 
+/**
+
+ThreadPool和ShardedThreadPool的不同点?
+
+a、ThreadPool线程池中的线程有机会处理工作队列中的任意一个任务；
+而ShardedThreadPool线程池中的线程，只能处理固定工作队列中得任务；
+
+b、一个ThreadPool线程池可以绑定多个WorkQueue_工作队列；
+而一个ShardedThreadPool线程池只能和一个BaseShardedWQ工作队列绑定；
+
+c、WorkQueue_的派生类PeeringWQ中，一次性处理所有缓存的任务；
+BaseShardedWQ的派生类ShardedOpWQ中，一次性只处理一个缓存的任务。
+
+*/
+
 /// Pool of threads that share work submitted to multiple work queues.
 class ThreadPool : public md_config_obs_t {
   CephContext *cct;
-  string name;
-  string thread_name;
-  string lockname;
+  string name;          // 线程名称(全称)
+  string thread_name;   // 线程名称(简称)
+  string lockname;      // 锁的名称
   Mutex _lock;
   Cond _cond;
   bool _stop;
@@ -38,12 +53,13 @@ class ThreadPool : public md_config_obs_t {
   int ioprio_class, ioprio_priority;
 
 public:
+  // 线程句柄
   class TPHandle {
     friend class ThreadPool;
     CephContext *cct;
-    heartbeat_handle_d *hb;
-    time_t grace;
-    time_t suicide_grace;
+    heartbeat_handle_d *hb; // hb中有线程ID
+    time_t grace;           // 线程超时时间
+    time_t suicide_grace;   // 线程的自杀超时时间
   public:
     TPHandle(
       CephContext *cct,
@@ -82,9 +98,9 @@ private:
   };
 
   // track thread pool size changes
-  unsigned _num_threads;
-  string _thread_num_option;
-  const char **_conf_keys;
+  unsigned _num_threads;        // 线程数量
+  string _thread_num_option;    //
+  const char **_conf_keys;      //
 
   const char **get_tracked_conf_keys() const override {
     return _conf_keys;
@@ -106,20 +122,23 @@ public:
     virtual void _process_finish(const list<T*> &) {}
 
     // virtual methods from WorkQueue_ below
-    void *_void_dequeue() override {
+    void *_void_dequeue() override
+    {
       list<T*> *out(new list<T*>);
       _dequeue(out);
       if (!out->empty()) {
-	return (void *)out;
+	    return (void *)out;
       } else {
-	delete out;
-	return 0;
+	    delete out;
+	    return 0;
       }
     }
-    void _void_process(void *p, TPHandle &handle) override {
+    void _void_process(void *p, TPHandle &handle) override
+    {
       _process(*((list<T*>*)p), handle);
     }
-    void _void_process_finish(void *p) override {
+    void _void_process_finish(void *p) override
+    {
       _process_finish(*(list<T*>*)p);
       delete (list<T*> *)p;
     }
@@ -264,7 +283,7 @@ public:
   template<class T>
   class WorkQueue : public WorkQueue_ {
     ThreadPool *pool;
-    
+
     /// Add a work item to the queue.
     virtual bool _enqueue(T *) = 0;
     /// Dequeue a previously submitted work item.
@@ -296,7 +315,7 @@ public:
     ~WorkQueue() override {
       pool->remove_work_queue(this);
     }
-    
+
     bool queue(T *item) {
       pool->_lock.Lock();
       bool r = _enqueue(item);
@@ -435,9 +454,9 @@ public:
     uint32_t m_processing;
   };
 private:
-  vector<WorkQueue_*> work_queues;
-  int next_work_queue = 0;
- 
+  vector<WorkQueue_*> work_queues;  // 绑定的工作队列
+  int next_work_queue = 0;  // 待处理的工作队列序号
+
 
   // threads
   struct WorkThread : public Thread {
@@ -449,8 +468,8 @@ private:
       return 0;
     }
   };
-  
-  set<WorkThread*> _threads;
+
+  set<WorkThread*> _threads;       ///< 工作线程
   list<WorkThread*> _old_threads;  ///< need to be joined
   int processing;
 
@@ -467,19 +486,22 @@ public:
     Mutex::Locker l(_lock);
     return _num_threads;
   }
-  
+
+  /// 添加工作队列
   /// assign a work queue to this thread pool
   void add_work_queue(WorkQueue_* wq) {
     Mutex::Locker l(_lock);
     work_queues.push_back(wq);
   }
+
+  /// 删除工作队列
   /// remove a work queue from this thread pool
   void remove_work_queue(WorkQueue_* wq) {
     Mutex::Locker l(_lock);
     unsigned i = 0;
     while (work_queues[i] != wq)
       i++;
-    for (i++; i < work_queues.size(); i++) 
+    for (i++; i < work_queues.size(); i++)
       work_queues[i-1] = work_queues[i];
     assert(i == work_queues.size());
     work_queues.resize(i-1);
@@ -539,7 +561,7 @@ public:
   GenContextWQ(const string &name, time_t ti, ThreadPool *tp)
     : ThreadPool::WorkQueueVal<
       GenContext<ThreadPool::TPHandle&>*>(name, ti, ti*10, tp) {}
-  
+
   void _enqueue(GenContext<ThreadPool::TPHandle&> *c) override {
     _queue.push_back(c);
   }
@@ -636,7 +658,7 @@ class ShardedThreadPool {
 public:
 
   class BaseShardedWQ {
-  
+
   public:
     time_t timeout_interval, suicide_interval;
     BaseShardedWQ(time_t ti, time_t sti):timeout_interval(ti), suicide_interval(sti) {}
@@ -645,11 +667,11 @@ public:
     virtual void _process(uint32_t thread_index, heartbeat_handle_d *hb ) = 0;
     virtual void return_waiting_threads() = 0;
     virtual bool is_shard_empty(uint32_t thread_index) = 0;
-  };      
+  };
 
   template <typename T>
   class ShardedWQ: public BaseShardedWQ {
-  
+
     ShardedThreadPool* sharded_pool;
 
   protected:
@@ -658,7 +680,7 @@ public:
 
 
   public:
-    ShardedWQ(time_t ti, time_t sti, ShardedThreadPool* tp): BaseShardedWQ(ti, sti), 
+    ShardedWQ(time_t ti, time_t sti, ShardedThreadPool* tp): BaseShardedWQ(ti, sti),
                                                                  sharded_pool(tp) {
       tp->set_wq(this);
     }
@@ -673,7 +695,7 @@ public:
     void drain() {
       sharded_pool->drain();
     }
-    
+
   };
 
 private:

@@ -19,7 +19,7 @@ class Log : private Thread
 {
   Log **m_indirect_this;
 
-  SubsystemMap *m_subs;
+  SubsystemMap *m_subs; // 子系统列表: 子系统名称, 默认日志优先级
 
   pthread_mutex_t m_queue_mutex;
   pthread_mutex_t m_flush_mutex;
@@ -85,9 +85,9 @@ public:
 
   shared_ptr<Graylog> graylog() { return m_graylog; }
 
-  Entry *create_entry(int level, int subsys);
+  Entry *create_entry(int level, int subsys);   // 创建一条日志
   Entry *create_entry(int level, int subsys, size_t* expected_size);
-  void submit_entry(Entry *e);
+  void submit_entry(Entry *e);  // 日志入队列, 等待刷新到磁盘
 
   void start();
   void stop();

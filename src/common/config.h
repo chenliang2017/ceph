@@ -237,7 +237,7 @@ public:
   void show_config(std::ostream& out);
   /// dump all config values to a formatter
   void show_config(Formatter *f);
-  
+
   /// dump all config settings to a formatter
   void config_options(Formatter *f);
 
@@ -245,10 +245,10 @@ public:
   void diff(const md_config_t *other,
             map<string,pair<string,string> > *diff, set<string> *unknown);
 
-  /// obtain a diff between config values and another md_config_t 
-  /// values for a specific setting. 
+  /// obtain a diff between config values and another md_config_t
+  /// values for a specific setting.
   void diff(const md_config_t *other,
-            map<string,pair<string,string>> *diff, set<string> *unknown, 
+            map<string,pair<string,string>> *diff, set<string> *unknown,
             const string& setting);
 
   /// print/log warnings/errors from parsing the config
@@ -344,10 +344,10 @@ public:
 #define OPTION_OPT_UUID(name) uuid_d name;
 #define OPTION(name, ty) \
   public:                      \
-    OPTION_##ty(name)          
+    OPTION_##ty(name)
 #define SAFE_OPTION(name, ty) \
   protected:                        \
-    OPTION_##ty(name)               
+    OPTION_##ty(name)
 #include "common/legacy_config_opts.h"
 #undef OPTION_OPT_INT
 #undef OPTION_OPT_LONGLONG
@@ -406,12 +406,12 @@ int ceph_resolve_file_search(const std::string& filename_list,
 			     std::string& result);
 
 enum config_subsys_id {
-  ceph_subsys_,   // default
+  ceph_subsys_,   // default, 0
 #define SUBSYS(name, log, gather) \
   ceph_subsys_##name,
 #define DEFAULT_SUBSYS(log, gather)
-#include "common/subsys.h"
-#undef SUBSYS
+#include "common/subsys.h"  // 头文件展开, 内部含有很多SUBSYS,
+#undef SUBSYS           // SUBSYS全部通过上面的宏替换, 就都变成了ceph_subsys_xxx了
 #undef DEFAULT_SUBSYS
   ceph_subsys_max
 };

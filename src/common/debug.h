@@ -20,6 +20,9 @@
 /* Global version of the stuff in common/dout.h
  */
 
+// 宏定义
+// dout_context为全局定义的cct: g_ceph_context
+
 #define dout(v) ldout((dout_context), v)
 
 #define pdout(v, p) lpdout((dout_context), v, p)

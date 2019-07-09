@@ -1841,53 +1841,61 @@ private:
 
   // -- peering queue --
   struct PeeringWQ : public ThreadPool::BatchWorkQueue<PG> {
-    list<PG*> peering_queue;
-    OSD *osd;
-    set<PG*> in_use;
+    list<PG*> peering_queue;    // 任务队列
+    OSD *osd;   // 持有该PeeringWQ的OSD
+    set<PG*> in_use;    // 在处理中的任务
     PeeringWQ(OSD *o, time_t ti, time_t si, ThreadPool *tp)
       : ThreadPool::BatchWorkQueue<PG>(
-	"OSD::PeeringWQ", ti, si, tp), osd(o) {}
+	        "OSD::PeeringWQ", ti, si, tp), osd(o) {}
 
-    void _dequeue(PG *pg) override {
+    void _dequeue(PG *pg) override
+    {
       for (list<PG*>::iterator i = peering_queue.begin();
-	   i != peering_queue.end();
-	   ) {
-	if (*i == pg) {
-	  peering_queue.erase(i++);
-	  pg->put("PeeringWQ");
-	} else {
-	  ++i;
-	}
+	       i != peering_queue.end();)
+      {
+    	if (*i == pg) {
+    	  peering_queue.erase(i++);
+    	  pg->put("PeeringWQ");
+    	} else {
+    	  ++i;
+    	}
       }
     }
-    bool _enqueue(PG *pg) override {
+    //> 任务入队列
+    bool _enqueue(PG *pg) override
+    {
       pg->get("PeeringWQ");
       peering_queue.push_back(pg);
       return true;
     }
-    bool _empty() override {
+    bool _empty() override
+    {
       return peering_queue.empty();
     }
+    //> 一次将全部的任务出队
     void _dequeue(list<PG*> *out) override;
-    void _process(
-      const list<PG *> &pgs,
-      ThreadPool::TPHandle &handle) override {
+    //> 处理任务
+    void _process(const list<PG *> &pgs,
+                  ThreadPool::TPHandle &handle) override
+    {
       assert(!pgs.empty());
       osd->process_peering_events(pgs, handle);
       for (list<PG *>::const_iterator i = pgs.begin();
-	   i != pgs.end();
-	   ++i) {
-	(*i)->put("PeeringWQ");
+	       i != pgs.end(); ++i)
+      {
+	    (*i)->put("PeeringWQ");
       }
     }
-    void _process_finish(const list<PG *> &pgs) override {
+    void _process_finish(const list<PG *> &pgs) override
+    {
       for (list<PG*>::const_iterator i = pgs.begin();
-	   i != pgs.end();
-	   ++i) {
-	in_use.erase(*i);
+	       i != pgs.end(); ++i)
+      {
+	    in_use.erase(*i);
       }
     }
-    void _clear() override {
+    void _clear() override
+    {
       assert(peering_queue.empty());
     }
   } peering_wq;

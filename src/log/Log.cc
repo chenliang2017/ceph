@@ -210,18 +210,22 @@ void Log::stop_graylog()
 
 void Log::submit_entry(Entry *e)
 {
+  // m_queue_mutex用来对m_new进行保护
   pthread_mutex_lock(&m_queue_mutex);
-  m_queue_mutex_holder = pthread_self();
+  m_queue_mutex_holder = pthread_self(); // 当前锁的持有者
 
   if (m_inject_segv)
     *(volatile int *)(0) = 0xdead;
 
   // wait for flush to catch up
+  // 队列长度大于100时, 就要等待队列中数据被交换出去才可以入队
+  // 假设日志落盘慢, 进程日志特别多, 那么这里的写日志线程就会被阻塞住
+  // 当日志产生速度大于落盘速度时, 所有需要打印日志的线程都会被堵塞, 影响性能
   while (m_new.m_len > m_max_new)
-    pthread_cond_wait(&m_cond_loggers, &m_queue_mutex);
+    pthread_cond_wait(&m_cond_loggers, &m_queue_mutex); // 阻塞等待m_new满足入队条件
 
-  m_new.enqueue(e);
-  pthread_cond_signal(&m_cond_flusher);
+  m_new.enqueue(e); // 入队列
+  pthread_cond_signal(&m_cond_flusher); // 通知等待者, m_new非空
   m_queue_mutex_holder = 0;
   pthread_mutex_unlock(&m_queue_mutex);
 }
@@ -244,16 +248,20 @@ Entry *Log::create_entry(int level, int subsys)
   }
 }
 
+// 在各自需要打印日志的线程中构造好了待打印的日志
+// 保证了日志信息的准确性
 Entry *Log::create_entry(int level, int subsys, size_t* expected_size)
 {
   if (true) {
     ANNOTATE_BENIGN_RACE_SIZED(expected_size, sizeof(*expected_size),
-                               "Log hint");
+                               "Log hint"); // expected_size值固定为80, 在dout宏中设置
     size_t size = __atomic_load_n(expected_size, __ATOMIC_RELAXED);
-    void *ptr = ::operator new(sizeof(Entry) + size);
+    void *ptr = ::operator new(sizeof(Entry) + size); // 申请一块内存, 存放该条日志
     return new(ptr) Entry(ceph_clock_now(),
        pthread_self(), level, subsys,
        reinterpret_cast<char*>(ptr) + sizeof(Entry), size, expected_size);
+    // 使用ptr的内存来初始化Entry
+    // reinterpret_cast类型转换
   } else {
     // kludge for perf testing
     Entry *e = m_recent.dequeue();
@@ -272,13 +280,15 @@ void Log::flush()
   pthread_mutex_lock(&m_queue_mutex);
   m_queue_mutex_holder = pthread_self();
   EntryQueue t;
-  t.swap(m_new);
-  pthread_cond_broadcast(&m_cond_loggers);
+  t.swap(m_new); // 交换出m_new中得全部数据
+  pthread_cond_broadcast(&m_cond_loggers); // 通知等待m_new可用的线程
   m_queue_mutex_holder = 0;
   pthread_mutex_unlock(&m_queue_mutex);
   _flush(&t, &m_recent, false);
 
   // trim
+  // m_recent中保存最近的10000条日志
+  // 日志模块保持最近10000条日志, 这10000条日志占用的内存不会释放
   while (m_recent.m_len > m_max_recent) {
     m_recent.dequeue()->destroy();
   }
@@ -315,12 +325,12 @@ void Log::_flush(EntryQueue *t, EntryQueue *requeue, bool crash)
       }
 
       if (crash)
-	buflen += snprintf(buf, buf_size, "%6d> ", -t->m_len);
-      buflen += e->m_stamp.sprintf(buf + buflen, buf_size-buflen);
-      buflen += snprintf(buf + buflen, buf_size-buflen, " %lx %2d ",
+	      buflen += snprintf(buf, buf_size, "%6d> ", -t->m_len);
+      buflen += e->m_stamp.sprintf(buf + buflen, buf_size-buflen);   // 时间
+      buflen += snprintf(buf + buflen, buf_size-buflen, " %lx %2d ", // 线程ID, 日志优先级
 			(unsigned long)e->m_thread, e->m_prio);
 
-      buflen += e->snprintf(buf + buflen, buf_size - buflen - 1);
+      buflen += e->snprintf(buf + buflen, buf_size - buflen - 1);    // 待打印日志内容
       if (buflen > buf_size - 1) { //paranoid check, buf was declared
 				   //to hold everything
         buflen = buf_size - 1;
@@ -337,13 +347,13 @@ void Log::_flush(EntryQueue *t, EntryQueue *requeue, bool crash)
       if (do_fd) {
         buf[buflen] = '\n';
         int r = safe_write(m_fd, buf, buflen+1);
-	if (r != m_fd_last_error) {
-	  if (r < 0)
-	    cerr << "problem writing to " << m_log_file
-		 << ": " << cpp_strerror(r)
-		 << std::endl;
-	  m_fd_last_error = r;
-	}
+      	if (r != m_fd_last_error) {
+      	  if (r < 0)
+      	    cerr << "problem writing to " << m_log_file
+      		 << ": " << cpp_strerror(r)
+      		 << std::endl;
+      	  m_fd_last_error = r;
+      	}
       }
       if (need_dynamic)
         delete[] buf;
@@ -457,6 +467,7 @@ void *Log::entry()
       continue;
     }
 
+    // 等待m_new非空
     pthread_cond_wait(&m_cond_flusher, &m_queue_mutex);
   }
   m_queue_mutex_holder = 0;

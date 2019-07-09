@@ -1967,10 +1967,10 @@ OSD::OSD(CephContext *cct_, ObjectStore *store_,
   asok_hook(NULL),
   osd_compat(get_osd_compat_set()),
   peering_tp(cct, "OSD::peering_tp", "tp_peering",
-	     cct->_conf->osd_peering_wq_threads,
+	     cct->_conf->osd_peering_wq_threads,  // 2 == osd_peering_wq_threads
 	     "osd_peering_tp_threads"),
   osd_op_tp(cct, "OSD::osd_op_tp", "tp_osd_tp",
-	    get_num_op_threads()),
+	    get_num_op_threads()),  // 默认5个线程
   remove_tp(cct, "OSD::remove_tp", "tp_osd_remove", cct->_conf->osd_remove_threads, "osd_remove_threads"),
   recovery_tp(cct, "OSD::recovery_tp", "tp_osd_recovery", cct->_conf->osd_recovery_threads, "osd_recovery_threads"),
   command_tp(cct, "OSD::command_tp", "tp_osd_cmd",  1),
@@ -1999,8 +1999,8 @@ OSD::OSD(CephContext *cct_, ObjectStore *store_,
     &osd_op_tp),
   peering_wq(
     this,
-    cct->_conf->osd_op_thread_timeout,
-    cct->_conf->osd_op_thread_suicide_timeout,
+    cct->_conf->osd_op_thread_timeout,  // 15 == osd_op_thread_timeout
+    cct->_conf->osd_op_thread_suicide_timeout,  // 150 == osd_op_thread_suicide_timeout
     &peering_tp),
   map_lock("OSD::map_lock"),
   pg_map_lock("OSD::pg_map_lock"),
@@ -2409,23 +2409,25 @@ int OSD::enable_disable_fuse(bool stop)
   return 0;
 }
 
+// 默认情况下, 返回值为5
 int OSD::get_num_op_shards()
 {
-  if (cct->_conf->osd_op_num_shards)
+  if (cct->_conf->osd_op_num_shards)  // 0 == osd_op_num_shards
     return cct->_conf->osd_op_num_shards;
-  if (store_is_rotational)
-    return cct->_conf->osd_op_num_shards_hdd;
+  if (store_is_rotational)  // true == store_is_rotational
+    return cct->_conf->osd_op_num_shards_hdd; // 5 == osd_op_num_shards_hdd
   else
     return cct->_conf->osd_op_num_shards_ssd;
 }
 
+// 默认情况下, 返回值为5
 int OSD::get_num_op_threads()
 {
-  if (cct->_conf->osd_op_num_threads_per_shard)
+  if (cct->_conf->osd_op_num_threads_per_shard) // 0 == osd_op_num_threads_per_shard
     return get_num_op_shards() * cct->_conf->osd_op_num_threads_per_shard;
-  if (store_is_rotational)
+  if (store_is_rotational) // true == store_is_rotational
     return get_num_op_shards() * cct->_conf->osd_op_num_threads_per_shard_hdd;
-  else
+  else                    // 1 == osd_op_num_threads_per_shard_hdd
     return get_num_op_shards() * cct->_conf->osd_op_num_threads_per_shard_ssd;
 }
 
@@ -10346,11 +10348,12 @@ int OSD::init_op_flags(OpRequestRef& op)
   return 0;
 }
 
-void OSD::PeeringWQ::_dequeue(list<PG*> *out) {
+void OSD::PeeringWQ::_dequeue(list<PG*> *out)
+{
   for (list<PG*>::iterator i = peering_queue.begin();
-      i != peering_queue.end() &&
-      out->size() < osd->cct->_conf->osd_peering_wq_batch_size;
-      ) {
+       i != peering_queue.end() &&
+       out->size() < osd->cct->_conf->osd_peering_wq_batch_size;)
+  {
         if (in_use.count(*i)) {
           ++i;
         } else {

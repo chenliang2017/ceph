@@ -12,15 +12,18 @@
 namespace ceph {
 namespace logging {
 
+// Subsystem为子系统的日志级别管理类
+
 struct Subsystem {
-  int log_level, gather_level;
-  std::string name;
-  
-  Subsystem() : log_level(0), gather_level(0) {}     
+  int log_level, gather_level; // log_level为日志打印级别, 高于该级别的日志不会刷到日志中
+  std::string name;         // gather_level为日志统计级别, 低于该级别的日志会收集整理,
+  // name为子模块的名称ceph_subsys_xxx     // 入Log类日志队列
+
+  Subsystem() : log_level(0), gather_level(0) {}
 };
 
 class SubsystemMap {
-  std::vector<Subsystem> m_subsys;
+  std::vector<Subsystem> m_subsys;  // 记录所有子模块的日志级别限制
   unsigned m_max_name_len;
 
   friend class Log;
@@ -36,7 +39,7 @@ public:
     return m_max_name_len;
   }
 
-  void add(unsigned subsys, std::string name, int log, int gather);  
+  void add(unsigned subsys, std::string name, int log, int gather);
   void set_log_level(unsigned subsys, int log);
   void set_gather_level(unsigned subsys, int gather);
 
@@ -58,6 +61,7 @@ public:
     return m_subsys[subsys].name;
   }
 
+  // 是否需要收集整理该条日志
   bool should_gather(unsigned sub, int level) {
     assert(sub < m_subsys.size());
     return level <= m_subsys[sub].gather_level ||

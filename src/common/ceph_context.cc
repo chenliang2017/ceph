@@ -258,9 +258,9 @@ public:
       log->set_graylog_level(l, l);
 
       if (conf->log_to_graylog || conf->err_to_graylog) {
-	log->start_graylog();
+	      log->start_graylog();
       } else if (! (conf->log_to_graylog && conf->err_to_graylog)) {
-	log->stop_graylog();
+	      log->stop_graylog();
       }
     }
 
@@ -535,16 +535,16 @@ void CephContext::do_command(std::string command, cmdmap_t& cmdmap,
 
         for (const auto& p : diff) {
           f->dump_string(p.first.c_str(), p.second.second);
-        } 
+        }
         f->close_section();   //-- current
 
         f->open_object_section("defaults");
         for (const auto& p : diff) {
           f->dump_string(p.first.c_str(), p.second.first);
-        } 
+        }
         f->close_section();   //-- defaults
         f->close_section();   //-- diff
-      } 
+      }
     } else if (command == "log flush") {
       _log->flush();
     }
@@ -555,7 +555,7 @@ void CephContext::do_command(std::string command, cmdmap_t& cmdmap,
       _log->reopen_log_file();
     }
     else {
-      assert(0 == "registered under wrong command?");    
+      assert(0 == "registered under wrong command?");
     }
     f->close_section();
   }
@@ -597,10 +597,12 @@ CephContext::CephContext(uint32_t module_type_,
   ceph_spin_init(&_feature_lock);
   ceph_spin_init(&_cct_perf_lock);
 
+  // 创建Log类, 启动线程
   _log = new ceph::logging::Log(&_conf->subsys);
   _log->start();
 
-  _log_obs = new LogObs(_log);
+  // 向conf注册_log_obs, 当配置文件修改时, 触发回调
+  _log_obs = new LogObs(_log);  // LogObs类用来热配置Log
   _conf->add_observer(_log_obs);
 
   _cct_obs = new CephContextObs(this);
@@ -610,7 +612,7 @@ CephContext::CephContext(uint32_t module_type_,
   _conf->add_observer(_lockdep_obs);
 
   _perf_counters_collection = new PerfCountersCollection(this);
- 
+
   _admin_socket = new AdminSocket(this);
   _heartbeat_map = new HeartbeatMap(this);
 

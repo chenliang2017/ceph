@@ -1,4 +1,4 @@
-// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*- 
+// -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 /*
  * Ceph - scalable distributed file system
@@ -7,9 +7,9 @@
  *
  * This is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
- * License version 2.1, as published by the Free Software 
+ * License version 2.1, as published by the Free Software
  * Foundation.  See file COPYING.
- * 
+ *
  */
 
 #include "WorkQueue.h"
@@ -83,12 +83,13 @@ void ThreadPool::handle_conf_change(const struct md_config_t *conf,
 
 void ThreadPool::worker(WorkThread *wt)
 {
-  _lock.Lock();
+  _lock.Lock(); // 占用了线程池锁, 锁work_queues
   ldout(cct,10) << "worker start" << dendl;
-  
+
   std::stringstream ss;
   ss << name << " thread " << (void *)pthread_self();
   heartbeat_handle_d *hb = cct->get_heartbeat_map()->add_worker(ss.str(), pthread_self());
+  // 向HeartbeatMap中注册了自己, HeartbeatMap开始检测该线程的超时
 
   while (!_stop) {
 
@@ -103,44 +104,43 @@ void ThreadPool::worker(WorkThread *wt)
 
     if (!_pause && !work_queues.empty()) {
       WorkQueue_* wq;
-      int tries = work_queues.size();
+      int tries = work_queues.size(); // 当前工作队列的数量
       bool did = false;
       while (tries--) {
-	next_work_queue %= work_queues.size();
-	wq = work_queues[next_work_queue++];
-	
-	void *item = wq->_void_dequeue();
-	if (item) {
-	  processing++;
-	  ldout(cct,12) << "worker wq " << wq->name << " start processing " << item
-			<< " (" << processing << " active)" << dendl;
-	  TPHandle tp_handle(cct, hb, wq->timeout_interval, wq->suicide_interval);
-	  tp_handle.reset_tp_timeout();
-	  _lock.Unlock();
-	  wq->_void_process(item, tp_handle);
-	  _lock.Lock();
-	  wq->_void_process_finish(item);
-	  processing--;
-	  ldout(cct,15) << "worker wq " << wq->name << " done processing " << item
-			<< " (" << processing << " active)" << dendl;
-	  if (_pause || _draining)
-	    _wait_cond.Signal();
-	  did = true;
-	  break;
-	}
+      	next_work_queue %= work_queues.size();
+      	wq = work_queues[next_work_queue++];  // 获取待处理的工作队列
+
+      	void *item = wq->_void_dequeue(); // 工作队列中的任务出队
+      	if (item) {
+      	  processing++;
+      	  ldout(cct,12) << "worker wq " << wq->name << " start processing " << item
+      			<< " (" << processing << " active)" << dendl;
+      	  TPHandle tp_handle(cct, hb, wq->timeout_interval, wq->suicide_interval);
+      	  tp_handle.reset_tp_timeout();
+      	  _lock.Unlock();   // 处理工作队列中任务时, 释放线程池锁, 允许线程池中其他线程也处理其他工作队列
+      	  wq->_void_process(item, tp_handle);
+      	  _lock.Lock(); // 再次加锁, 后续代码设计线程池中变量修改, 需要加锁
+      	  wq->_void_process_finish(item);
+      	  processing--;
+      	  ldout(cct,15) << "worker wq " << wq->name << " done processing " << item
+      			<< " (" << processing << " active)" << dendl;
+      	  if (_pause || _draining)
+      	    _wait_cond.Signal();
+      	  did = true;
+      	  break;
+      	}
       }
       if (did)
-	continue;
+	      continue;
     }
 
     ldout(cct,20) << "worker waiting" << dendl;
     cct->get_heartbeat_map()->reset_timeout(
       hb,
-      cct->_conf->threadpool_default_timeout,
-      0);
-    _cond.WaitInterval(_lock,
-      utime_t(
-	cct->_conf->threadpool_empty_queue_max_wait, 0));
+      cct->_conf->threadpool_default_timeout,   // 60 == threadpool_default_timeout
+      0); // 重置线程超时时间60秒, 不设置超时自杀时间
+    _cond.WaitInterval(_lock, // 2秒超时等待工作队列中任务非空
+      utime_t(cct->_conf->threadpool_empty_queue_max_wait, 0));   // 2 == threadpool_empty_queue_max_wait
   }
   ldout(cct,1) << "worker finish" << dendl;
 
@@ -182,7 +182,7 @@ void ThreadPool::start()
 
   if (_thread_num_option.length()) {
     ldout(cct, 10) << " registering config observer on " << _thread_num_option << dendl;
-    cct->_conf->add_observer(this);
+    cct->_conf->add_observer(this); // 向配置文件注册自己, 配置文件变动时, 触发回调
   }
 
   _lock.Lock();
@@ -216,7 +216,7 @@ void ThreadPool::stop(bool clear_after)
   for (unsigned i=0; i<work_queues.size(); i++)
     work_queues[i]->_clear();
   _stop = false;
-  _lock.Unlock();    
+  _lock.Unlock();
   ldout(cct,15) << "stopped" << dendl;
 }
 
@@ -268,7 +268,7 @@ void ThreadPool::set_ioprio(int cls, int priority)
   for (set<WorkThread*>::iterator p = _threads.begin();
        p != _threads.end();
        ++p) {
-    ldout(cct,10) << __func__ 
+    ldout(cct,10) << __func__
 		  << " class " << cls << " priority " << priority
 		  << " pid " << (*p)->get_pid()
 		  << dendl;
@@ -397,7 +397,7 @@ void ShardedThreadPool::pause()
     wait_cond.Wait(shardedpool_lock);
   }
   shardedpool_lock.Unlock();
-  ldout(cct,10) << "paused" << dendl; 
+  ldout(cct,10) << "paused" << dendl;
 }
 
 void ShardedThreadPool::pause_new()

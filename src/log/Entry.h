@@ -13,15 +13,17 @@
 namespace ceph {
 namespace logging {
 
+// Entry用来记录一条日志
+
 struct Entry {
-  utime_t m_stamp;
-  pthread_t m_thread;
-  short m_prio, m_subsys;
+  utime_t m_stamp;          // 表示日志产生的时间
+  pthread_t m_thread;       // 打印此条日志的线程ID
+  short m_prio, m_subsys;   // m_prio代表日志级别, m_subsys代表子系统
   Entry *m_next;
 
-  PrebufferedStreambuf m_streambuf;
-  size_t m_buf_len;
-  size_t* m_exp_len;
+  PrebufferedStreambuf m_streambuf; // 外部创建, 存放待刷新到磁盘中的日志
+  size_t m_buf_len;         // 实际长度
+  size_t* m_exp_len;        // 期望的长度
   char m_static_buf[1];
 
   Entry()

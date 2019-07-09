@@ -26,6 +26,9 @@ struct md_config_t;
  * Subscribe for configuration changes by calling the md_config_t::add_observer() method
  * and unsubscribe using md_config_t::remove_observer().
  */
+
+// 配置文件观察者, 向配置文件注册自己, 当配置文件修改时, 会触发回调
+
 class md_config_obs_t {
 public:
   virtual ~md_config_obs_t() {}

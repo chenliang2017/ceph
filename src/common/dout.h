@@ -60,9 +60,11 @@ public:
 		  "provided cct must be compatible with CephContext*"); \
     auto _dout_cct = cct;						\
     std::ostream* _dout = &_dout_os;
+// dout_impl(cct, sub, v)宏, 到此结束
 
 #define lsubdout(cct, sub, v)  dout_impl(cct, ceph_subsys_##sub, v) dout_prefix
-#define ldout(cct, v)  dout_impl(cct, dout_subsys, v) dout_prefix
+#define ldout(cct, v)  dout_impl(cct, dout_subsys, v) dout_prefix   // dout_subsys为日志子模块宏, 定义在不同的模块.cc文件中
+                                                                    // dout_prefix为打印内容之前的默认打印, 不同模块不同
 #define lderr(cct) dout_impl(cct, ceph_subsys_, -1) dout_prefix
 
 #define ldpp_dout(dpp, v) if (dpp) dout_impl(dpp->get_cct(), dpp->get_subsys(), v) (*_dout << dpp->gen_prefix())
@@ -80,6 +82,7 @@ public:
   _ASSERT_H->_log->submit_entry(_dout_e);		\
     }						\
   } while (0)
+// dendl_impl宏到此结束
 
 #define dendl dendl_impl
 

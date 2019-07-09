@@ -85,7 +85,7 @@ md_config_t::md_config_t(bool is_daemon)
   // a map so that we can resolve keys quickly.
   for (const auto &i : ceph_options) {
     if (schema.count(i.name)) {
-      // We may be instantiated pre-logging so send 
+      // We may be instantiated pre-logging so send
       std::cerr << "Duplicate config key in schema: '" << i.name << "'"
                 << std::endl;
       assert(false);
@@ -175,6 +175,8 @@ void md_config_t::validate_schema()
   }
 }
 
+// 初始化所有子模块的日志级别限制
+// subsys为SubsystemMap对象, 保存所有子模块的日志级别限制
 void md_config_t::init_subsys()
 {
 #define SUBSYS(name, log, gather) \
@@ -190,6 +192,8 @@ md_config_t::~md_config_t()
 {
 }
 
+// 注册观察者
+// 配置文件变动时, 会通知观察者
 void md_config_t::add_observer(md_config_obs_t* observer_)
 {
   Mutex::Locker l(lock);
@@ -348,7 +352,7 @@ int md_config_t::parse_config_files_impl(const std::list<std::string> &conf_file
 	subsys.set_log_level(o, log);
 	subsys.set_gather_level(o, gather);
       }
-    }	
+    }
   }
 
   // Warn about section names that look like old-style section names
@@ -578,7 +582,7 @@ int md_config_t::parse_option(std::vector<const char*>& args,
 	  *oss << "debug_" << subsys.get_name(o) << "=" << log << "/" << gather << " ";
       }
       break;
-    }	
+    }
   }
   if (o < subsys.get_num()) {
     return ret;
@@ -841,7 +845,7 @@ int md_config_t::set_val(const std::string &key, const char *val,
         }
 	return -EINVAL;
       }
-    }	
+    }
   }
 
   const auto &opt_iter = schema.find(k);
@@ -1335,14 +1339,14 @@ bool md_config_t::expand_meta(std::string &origval,
 void md_config_t::diff(
   const md_config_t *other,
   map<string, pair<string, string> > *diff,
-  set<string> *unknown) 
+  set<string> *unknown)
 {
   diff_helper(other, diff, unknown);
 }
 void md_config_t::diff(
   const md_config_t *other,
   map<string, pair<string, string> > *diff,
-  set<string> *unknown, const string& setting) 
+  set<string> *unknown, const string& setting)
 {
   diff_helper(other, diff, unknown, setting);
 }
