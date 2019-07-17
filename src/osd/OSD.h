@@ -1621,8 +1621,8 @@ private:
   };
   friend std::ostream& operator<<(std::ostream& out, const OSD::io_queue& q);
 
-  const io_queue op_queue;
-  const unsigned int op_prio_cutoff;
+  const io_queue op_queue;				// 默认值为io_queue::weightedpriority
+  const unsigned int op_prio_cutoff;	// 默认值为64(CEPH_MSG_PRIO_LOW)
 
   /*
    * The ordered op delivery chain is:
@@ -1657,17 +1657,17 @@ private:
 
       OSDMapRef waiting_for_pg_osdmap;
       struct pg_slot {
-	PGRef pg;                     ///< cached pg reference [optional]
-	list<PGQueueable> to_process; ///< order items for this slot
-	int num_running = 0;          ///< _process threads doing pg lookup/lock
+		PGRef pg;                     ///< cached pg reference [optional]
+		list<PGQueueable> to_process; ///< order items for this slot
+		int num_running = 0;          ///< _process threads doing pg lookup/lock
 
-	/// true if pg does/did not exist. if so all new items go directly to
-	/// to_process.  cleared by prune_pg_waiters.
-	bool waiting_for_pg = false;
+		/// true if pg does/did not exist. if so all new items go directly to
+		/// to_process.  cleared by prune_pg_waiters.
+		bool waiting_for_pg = false;
 
-	/// incremented by wake_pg_waiters; indicates racing _process threads
-	/// should bail out (their op has been requeued)
-	uint64_t requeue_seq = 0;
+		/// incremented by wake_pg_waiters; indicates racing _process threads
+		/// should bail out (their op has been requeued)
+		uint64_t requeue_seq = 0;
       };
 
       /// map of slots for each spg_t.  maintains ordering of items dequeued
@@ -1676,78 +1676,84 @@ private:
       unordered_map<spg_t,pg_slot> pg_slots;
 
       /// priority queue
+      /// OpQueue< pair<spg_t, PGQueueable>, entity_inst_t> --> 
+      /// spg_t存放pg信息, PGQueueable存放信息, entity_inst_t存放消息来源的服务/服务的whoami/端口信息
       std::unique_ptr<OpQueue< pair<spg_t, PGQueueable>, entity_inst_t>> pqueue;
 
       void _enqueue_front(pair<spg_t, PGQueueable> item, unsigned cutoff) {
-	unsigned priority = item.second.get_priority();
-	unsigned cost = item.second.get_cost();
-	if (priority >= cutoff)
-	  pqueue->enqueue_strict_front(
-	    item.second.get_owner(),
-	    priority, item);
-	else
-	  pqueue->enqueue_front(
-	    item.second.get_owner(),
-	    priority, cost, item);
+		unsigned priority = item.second.get_priority();
+		unsigned cost = item.second.get_cost();
+		if (priority >= cutoff)
+		  pqueue->enqueue_strict_front(
+		    item.second.get_owner(),
+		    priority, item);
+		else
+		  pqueue->enqueue_front(
+		    item.second.get_owner(),
+		    priority, cost, item);
       }
 
       ShardData(
-	string lock_name, string ordering_lock,
-	uint64_t max_tok_per_prio, uint64_t min_cost, CephContext *cct,
-	io_queue opqueue)
-	: sdata_lock(lock_name.c_str(), false, true, false, cct),
-	  sdata_op_ordering_lock(ordering_lock.c_str(), false, true,
-				 false, cct) {
-	if (opqueue == io_queue::weightedpriority) {
-	  pqueue = std::unique_ptr
-	    <WeightedPriorityQueue<pair<spg_t,PGQueueable>,entity_inst_t>>(
-	      new WeightedPriorityQueue<pair<spg_t,PGQueueable>,entity_inst_t>(
-		max_tok_per_prio, min_cost));
-	} else if (opqueue == io_queue::prioritized) {
-	  pqueue = std::unique_ptr
-	    <PrioritizedQueue<pair<spg_t,PGQueueable>,entity_inst_t>>(
-	      new PrioritizedQueue<pair<spg_t,PGQueueable>,entity_inst_t>(
-		max_tok_per_prio, min_cost));
-	} else if (opqueue == io_queue::mclock_opclass) {
-	  pqueue = std::unique_ptr
-	    <ceph::mClockOpClassQueue>(new ceph::mClockOpClassQueue(cct));
-	} else if (opqueue == io_queue::mclock_client) {
-	  pqueue = std::unique_ptr
-	    <ceph::mClockClientQueue>(new ceph::mClockClientQueue(cct));
-	}
+		string lock_name, string ordering_lock,
+		uint64_t max_tok_per_prio, uint64_t min_cost, CephContext *cct,
+		io_queue opqueue)	// opqueue默认值为io_queue::weightedpriority
+		: sdata_lock(lock_name.c_str(), false, true, false, cct),
+		  sdata_op_ordering_lock(ordering_lock.c_str(), false, true,
+					 false, cct) 
+	 {
+		if (opqueue == io_queue::weightedpriority) {	// 默认情况
+		  pqueue = std::unique_ptr
+		    <WeightedPriorityQueue<pair<spg_t,PGQueueable>,entity_inst_t>>(
+		      new WeightedPriorityQueue<pair<spg_t,PGQueueable>,entity_inst_t>(
+			max_tok_per_prio, min_cost));
+		} else if (opqueue == io_queue::prioritized) {
+		  pqueue = std::unique_ptr
+		    <PrioritizedQueue<pair<spg_t,PGQueueable>,entity_inst_t>>(
+		      new PrioritizedQueue<pair<spg_t,PGQueueable>,entity_inst_t>(
+			max_tok_per_prio, min_cost));
+		} else if (opqueue == io_queue::mclock_opclass) {
+		  pqueue = std::unique_ptr
+		    <ceph::mClockOpClassQueue>(new ceph::mClockOpClassQueue(cct));
+		} else if (opqueue == io_queue::mclock_client) {
+		  pqueue = std::unique_ptr
+		    <ceph::mClockClientQueue>(new ceph::mClockClientQueue(cct));
+		}
       }
     }; // struct ShardData
 
     vector<ShardData*> shard_list;
     OSD *osd;
-    uint32_t num_shards;
+    uint32_t num_shards;	// 默认值为5, 与ShardedThreadPool中线程数一致
 
   public:
     ShardedOpWQ(uint32_t pnum_shards,
 		OSD *o,
 		time_t ti,
 		time_t si,
-		ShardedThreadPool* tp)
+		ShardedThreadPool* tp)	// 绑定的线程池
       : ShardedThreadPool::ShardedWQ<pair<spg_t,PGQueueable>>(ti, si, tp),
         osd(o),
-        num_shards(pnum_shards) {
+        num_shards(pnum_shards) 
+   {
       for (uint32_t i = 0; i < num_shards; i++) {
-	char lock_name[32] = {0};
-	snprintf(lock_name, sizeof(lock_name), "%s.%d", "OSD:ShardedOpWQ:", i);
-	char order_lock[32] = {0};
-	snprintf(order_lock, sizeof(order_lock), "%s.%d",
-		 "OSD:ShardedOpWQ:order:", i);
-	ShardData* one_shard = new ShardData(
-	  lock_name, order_lock,
-	  osd->cct->_conf->osd_op_pq_max_tokens_per_priority,
-	  osd->cct->_conf->osd_op_pq_min_cost, osd->cct, osd->op_queue);
-	shard_list.push_back(one_shard);
+		char lock_name[32] = {0};
+		snprintf(lock_name, sizeof(lock_name), "%s.%d", "OSD:ShardedOpWQ:", i);
+		char order_lock[32] = {0};
+		snprintf(order_lock, sizeof(order_lock), "%s.%d",
+			 "OSD:ShardedOpWQ:order:", i);
+		ShardData* one_shard = new ShardData(
+		  lock_name, order_lock,
+		  osd->cct->_conf->osd_op_pq_max_tokens_per_priority,
+		  osd->cct->_conf->osd_op_pq_min_cost, osd->cct, osd->op_queue);
+		shard_list.push_back(one_shard);
       }
     }
+	// 构造函数中创建与绑定线程池中线程同样数量的ShardData
+		
     ~ShardedOpWQ() override {
       while (!shard_list.empty()) {
-	delete shard_list.back();
-	shard_list.pop_back();
+		delete shard_list.back();
+		shard_list.pop_back();
       }
     }
 
@@ -1774,25 +1780,25 @@ private:
 
     void return_waiting_threads() override {
       for(uint32_t i = 0; i < num_shards; i++) {
-	ShardData* sdata = shard_list[i];
-	assert (NULL != sdata);
-	sdata->sdata_lock.Lock();
-	sdata->sdata_cond.Signal();
-	sdata->sdata_lock.Unlock();
+		ShardData* sdata = shard_list[i];
+		assert (NULL != sdata);
+		sdata->sdata_lock.Lock();
+		sdata->sdata_cond.Signal();
+		sdata->sdata_lock.Unlock();
       }
     }
 
     void dump(Formatter *f) {
       for(uint32_t i = 0; i < num_shards; i++) {
-	ShardData* sdata = shard_list[i];
-	char lock_name[32] = {0};
-	snprintf(lock_name, sizeof(lock_name), "%s%d", "OSD:ShardedOpWQ:", i);
-	assert (NULL != sdata);
-	sdata->sdata_op_ordering_lock.Lock();
-	f->open_object_section(lock_name);
-	sdata->pqueue->dump(f);
-	f->close_section();
-	sdata->sdata_op_ordering_lock.Unlock();
+		ShardData* sdata = shard_list[i];
+		char lock_name[32] = {0};
+		snprintf(lock_name, sizeof(lock_name), "%s%d", "OSD:ShardedOpWQ:", i);
+		assert (NULL != sdata);
+		sdata->sdata_op_ordering_lock.Lock();
+		f->open_object_section(lock_name);
+		sdata->pqueue->dump(f);
+		f->close_section();
+		sdata->sdata_op_ordering_lock.Unlock();
       }
     }
 
@@ -1804,23 +1810,23 @@ private:
       Pred(spg_t pg, list<OpRequestRef> *out_ops = 0)
 	: pgid(pg), out_ops(out_ops), reserved_pushes_to_free(0) {}
       void accumulate(const PGQueueable &op) {
-	reserved_pushes_to_free += op.get_reserved_pushes();
-	if (out_ops) {
-	  boost::optional<OpRequestRef> mop = op.maybe_get_op();
-	  if (mop)
-	    out_ops->push_front(*mop);
-	}
+		reserved_pushes_to_free += op.get_reserved_pushes();
+		if (out_ops) {
+		  boost::optional<OpRequestRef> mop = op.maybe_get_op();
+		  if (mop)
+		    out_ops->push_front(*mop);
+		}
       }
       bool operator()(const pair<spg_t, PGQueueable> &op) {
-	if (op.first == pgid) {
-	  accumulate(op.second);
-	  return true;
-	} else {
-	  return false;
-	}
+		if (op.first == pgid) {
+		  accumulate(op.second);
+		  return true;
+		} else {
+		  return false;
+		}
       }
       uint64_t get_reserved_pushes_to_free() const {
-	return reserved_pushes_to_free;
+		return reserved_pushes_to_free;
       }
     };
 
@@ -2398,7 +2404,7 @@ private:
       return io_queue::mclock_client;
     } else {
       // default / catch-all is 'wpq'
-      return io_queue::weightedpriority;
+      return io_queue::weightedpriority;	// 默认值
     }
   }
 
@@ -2410,7 +2416,7 @@ private:
       return CEPH_MSG_PRIO_HIGH;
     } else {
       // default / catch-all is 'low'
-      return CEPH_MSG_PRIO_LOW;
+      return CEPH_MSG_PRIO_LOW;	// 默认值
     }
   }
 

@@ -1989,10 +1989,10 @@ OSD::OSD(CephContext *cct_, ObjectStore *store_,
   op_tracker(cct, cct->_conf->osd_enable_op_tracker,
                   cct->_conf->osd_num_op_tracker_shard),
   test_ops_hook(NULL),
-  op_queue(get_io_queue()),
-  op_prio_cutoff(get_io_prio_cut()),
+  op_queue(get_io_queue()),		// io_queue::weightedpriority
+  op_prio_cutoff(get_io_prio_cut()),	// 64 == op_prio_cutoff 默认值
   op_shardedwq(
-    get_num_op_shards(),
+    get_num_op_shards(),	// 默认情况下, 返回值为5
     this,
     cct->_conf->osd_op_thread_timeout,
     cct->_conf->osd_op_thread_suicide_timeout,
@@ -4400,7 +4400,7 @@ int OSD::handle_pg_peering_evt(
 
       int role = osdmap->calc_pg_role(whoami, acting, acting.size());
       if (!pp->is_replicated() && role != pgid.shard)
-	role = -1;
+		role = -1;
 
       pg = _create_lock_pg(
 	get_map(epoch),
@@ -10387,7 +10387,7 @@ void OSD::ShardedOpWQ::wake_pg_waiters(spg_t pgid)
       for (auto i = p->second.to_process.rbegin();
 	   i != p->second.to_process.rend();
 	   ++i) {
-	sdata->_enqueue_front(make_pair(pgid, *i), osd->op_prio_cutoff);
+		sdata->_enqueue_front(make_pair(pgid, *i), osd->op_prio_cutoff);
       }
       p->second.to_process.clear();
       p->second.waiting_for_pg = false;
@@ -10474,13 +10474,13 @@ void OSD::ShardedOpWQ::clear_pg_slots()
 
 void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb)
 {
-  uint32_t shard_index = thread_index % num_shards;
-  ShardData *sdata = shard_list[shard_index];
+  uint32_t shard_index = thread_index % num_shards;	// 线程ID与num_shards进行hash
+  ShardData *sdata = shard_list[shard_index];	// 线程将于shard_list队列中的ShardData一一绑定
   assert(NULL != sdata);
 
   // peek at spg_t
   sdata->sdata_op_ordering_lock.Lock();
-  if (sdata->pqueue->empty()) {
+  if (sdata->pqueue->empty()) {		// 空, 等待数据 
     dout(20) << __func__ << " empty q, waiting" << dendl;
     // optimistically sleep a moment; maybe another work item will come along.
     osd->cct->get_heartbeat_map()->reset_timeout(hb,
@@ -10495,8 +10495,9 @@ void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb)
       sdata->sdata_op_ordering_lock.Unlock();
       return;
     }
-  }
-  pair<spg_t, PGQueueable> item = sdata->pqueue->dequeue();
+  }	
+  
+  pair<spg_t, PGQueueable> item = sdata->pqueue->dequeue();	// 出队Op, 从优先级队列出队
   if (osd->is_stopping()) {
     sdata->sdata_op_ordering_lock.Unlock();
     return;    // OSD shutdown, discard.
@@ -10508,7 +10509,7 @@ void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb)
     dout(30) << __func__ << " " << item.first
 	     << " to_process " << slot.to_process
 	     << " waiting_for_pg=" << (int)slot.waiting_for_pg << dendl;
-    slot.to_process.push_back(item.second);
+    slot.to_process.push_back(item.second);	  // 把出队的Op放入pg对应的pg_slots中
     // note the requeue seq now...
     requeue_seq = slot.requeue_seq;
     if (slot.waiting_for_pg) {
@@ -10536,13 +10537,13 @@ void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb)
 
   osd->service.maybe_inject_dispatch_delay();
 
-  boost::optional<PGQueueable> qi;
+  boost::optional<PGQueueable> qi;	// 待处理的消息
 
   // we don't use a Mutex::Locker here because of the
   // osd->service.release_reserved_pushes() call below
   sdata->sdata_op_ordering_lock.Lock();
 
-  auto q = sdata->pg_slots.find(item.first);
+  auto q = sdata->pg_slots.find(item.first);	// 找到pg对应的pg_slot
   assert(q != sdata->pg_slots.end());
   auto& slot = q->second;
   --slot.num_running;
@@ -10586,7 +10587,7 @@ void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb)
   }
 
   // take next item
-  qi = slot.to_process.front();
+  qi = slot.to_process.front();	// pg待处理Op队列中得第一个Op
   slot.to_process.pop_front();
   dout(20) << __func__ << " " << item.first << " item " << *qi
 	   << " pg " << pg << dendl;
@@ -10654,7 +10655,7 @@ void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb)
 
   ThreadPool::TPHandle tp_handle(osd->cct, hb, timeout_interval,
 				 suicide_interval);
-  qi->run(osd, pg, tp_handle);
+  qi->run(osd, pg, tp_handle);	// 处理Op
 
   {
 #ifdef WITH_LTTNG
@@ -10670,24 +10671,27 @@ void OSD::ShardedOpWQ::_process(uint32_t thread_index, heartbeat_handle_d *hb)
   pg->unlock();
 }
 
+// 入队
 void OSD::ShardedOpWQ::_enqueue(pair<spg_t, PGQueueable> item) {
   uint32_t shard_index =
     item.first.hash_to_shard(shard_list.size());
+  // pg序号与shard_list队列大小做hash
+  // pg将均匀分布在5个ShardData上
 
   ShardData* sdata = shard_list[shard_index];
   assert (NULL != sdata);
-  unsigned priority = item.second.get_priority();
-  unsigned cost = item.second.get_cost();
+  unsigned priority = item.second.get_priority();	// Op的优先级
+  unsigned cost = item.second.get_cost();			// Op占用内存大小
   sdata->sdata_op_ordering_lock.Lock();
 
   dout(20) << __func__ << " " << item.first << " " << item.second << dendl;
-  if (priority >= osd->op_prio_cutoff)
+  if (priority >= osd->op_prio_cutoff)	// 64 == osd->op_prio_cutoff
     sdata->pqueue->enqueue_strict(
-      item.second.get_owner(), priority, item);
+      item.second.get_owner(), priority, item);	// 严格优先级队列
   else
     sdata->pqueue->enqueue(
       item.second.get_owner(),
-      priority, cost, item);
+      priority, cost, item);	// 普通优先级队列
   sdata->sdata_op_ordering_lock.Unlock();
 
   sdata->sdata_lock.Lock();

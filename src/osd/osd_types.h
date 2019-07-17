@@ -350,13 +350,13 @@ struct old_pg_t {
     ::decode_raw(v, bl);
   }
 };
-WRITE_CLASS_ENCODER(old_pg_t)
+WRITE_CLASS_ENCODER(old_pg_t);
 
 // placement group id
 struct pg_t {
-  uint64_t m_pool;
-  uint32_t m_seed;
-  int32_t m_preferred;
+  uint64_t m_pool;		// pg所在的pool
+  uint32_t m_seed;		// pg的序号, 与pool中的pg数进行hash, 得到在该pool中的最终pgid
+  int32_t m_preferred;	// pg优先选择的主osd
 
   pg_t() : m_pool(0), m_seed(0), m_preferred(-1) {}
   pg_t(ps_t seed, uint64_t pool, int pref=-1) :
@@ -452,7 +452,7 @@ struct pg_t {
   void dump(Formatter *f) const;
   static void generate_test_instances(list<pg_t*>& o);
 };
-WRITE_CLASS_ENCODER(pg_t)
+WRITE_CLASS_ENCODER(pg_t);
 
 inline bool operator<(const pg_t& l, const pg_t& r) {
   return l.pool() < r.pool() ||
@@ -499,8 +499,8 @@ namespace std {
 } // namespace std
 
 struct spg_t {
-  pg_t pgid;
-  shard_id_t shard;
+  pg_t pgid;			// pg结构信息
+  shard_id_t shard;		// 该pg所在的osd在osd列表中的序号
   spg_t() : shard(shard_id_t::NO_SHARD) {}
   spg_t(pg_t pgid, shard_id_t shard) : pgid(pgid), shard(shard) {}
   explicit spg_t(pg_t pgid) : pgid(pgid), shard(shard_id_t::NO_SHARD) {}
@@ -572,6 +572,8 @@ struct spg_t {
       shard);
   }
 
+  // pg序号与num_shards进行hash
+  // pg均匀分布在num_shards上
   unsigned hash_to_shard(unsigned num_shards) const {
     return ps() % num_shards;
   }

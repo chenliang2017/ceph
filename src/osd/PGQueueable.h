@@ -54,6 +54,13 @@ struct PGRecovery {
 };
 
 
+// boost::variant<>
+//> 类似于枚举, 可用于存放指定的数据类型
+
+// boost::static_visitor<>
+// boost::apply_visitor
+//> boost::variant<>的访问方式(访问者模式)
+
 class PGQueueable {
   typedef boost::variant<
     OpRequestRef,
@@ -61,13 +68,14 @@ class PGQueueable {
     PGScrub,
     PGRecovery
     > QVariant;
-  QVariant qvariant;
-  int cost;
-  unsigned priority;
-  utime_t start_time;
-  entity_inst_t owner;
+  QVariant qvariant;    //> qvariant中可以存放OpRequestRef/PGSnapTrim/PGScrub/PGRecovery四种Op
+  int cost;				//> Op大小
+  unsigned priority;	//> Op优先级
+  utime_t start_time;	
+  entity_inst_t owner;	//> Op从哪里发来的/哪个服务发来的
   epoch_t map_epoch;    ///< an epoch we expect the PG to exist in
 
+  //> 访问者模式
   struct RunVis : public boost::static_visitor<> {
     OSD *osd;
     PGRef &pg;
@@ -137,7 +145,7 @@ public:
   }
   void run(OSD *osd, PGRef &pg, ThreadPool::TPHandle &handle) {
     RunVis v(osd, pg, handle);
-    boost::apply_visitor(v, qvariant);
+    boost::apply_visitor(v, qvariant); //> 通过访问者模式获取Op
   }
   unsigned get_priority() const { return priority; }
   int get_cost() const { return cost; }

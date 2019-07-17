@@ -36,6 +36,9 @@ b、一个ThreadPool线程池可以绑定多个WorkQueue_工作队列；
 c、WorkQueue_的派生类PeeringWQ中，一次性处理所有缓存的任务；
 BaseShardedWQ的派生类ShardedOpWQ中，一次性只处理一个缓存的任务。
 
+d、OSD类中peering_wq和peering_tp配对使用处理Peering任务；
+op_shardedwq和osd_op_tp配对使用处理Op任务；
+
 */
 
 /// Pool of threads that share work submitted to multiple work queues.
@@ -640,13 +643,13 @@ private:
 class ShardedThreadPool {
 
   CephContext *cct;
-  string name;
-  string thread_name;
-  string lockname;
+  string name;				// 线程名称(全称)
+  string thread_name;		// 线程名称(简称)
+  string lockname;			// 锁的名称(name::lock)
   Mutex shardedpool_lock;
   Cond shardedpool_cond;
   Cond wait_cond;
-  uint32_t num_threads;
+  uint32_t num_threads;		// 线程池中线程个数
 
   std::atomic<bool> stop_threads = { false };
   std::atomic<bool> pause_threads = { false };
@@ -700,7 +703,7 @@ public:
 
 private:
 
-  BaseShardedWQ* wq;
+  BaseShardedWQ* wq;	// 绑定的工作队列, 只绑定一个工作队列
   // threads
   struct WorkThreadSharded : public Thread {
     ShardedThreadPool *pool;
@@ -713,7 +716,7 @@ private:
     }
   };
 
-  vector<WorkThreadSharded*> threads_shardedpool;
+  vector<WorkThreadSharded*> threads_shardedpool;	// 线程池
   void start_threads();
   void shardedthreadpool_worker(uint32_t thread_index);
   void set_wq(BaseShardedWQ* swq) {

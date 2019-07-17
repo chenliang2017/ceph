@@ -33,8 +33,8 @@ typedef uint8_t entity_type_t;
 
 class entity_name_t {
 public:
-  entity_type_t _type;
-  int64_t _num;
+  entity_type_t _type;	// 服务类型: CEPH_ENTITY_TYPE_MON, CEPH_ENTITY_TYPE_MDS, CEPH_ENTITY_TYPE_OSD, , ,
+  int64_t _num;			// 服务的ID号(whoami)
 
 public:
   static const int TYPE_MON = CEPH_ENTITY_TYPE_MON;
@@ -217,8 +217,8 @@ struct entity_addr_t {
     }
   };
 
-  __u32 type;
-  __u32 nonce;
+  __u32 type;		//
+  __u32 nonce;		// 一般用进程ID填充该字段
   union {
     sockaddr sa;
     sockaddr_in sin;

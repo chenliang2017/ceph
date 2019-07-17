@@ -335,8 +335,9 @@ void ShardedThreadPool::shardedthreadpool_worker(uint32_t thread_index)
 
     cct->get_heartbeat_map()->reset_timeout(
       hb,
-      wq->timeout_interval, wq->suicide_interval);
-    wq->_process(thread_index, hb);
+      wq->timeout_interval, wq->suicide_interval);	// 重置超时时间
+    wq->_process(thread_index, hb); // 调用工作队列的处理函数
+	// thread_index为线程池中的索引号
 
   }
 
