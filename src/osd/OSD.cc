@@ -7104,6 +7104,7 @@ bool OSD::heartbeat_dispatch(Message *m)
   return true;
 }
 
+// 在DispatchQueue线程中执行
 bool OSD::ms_dispatch(Message *m)
 {
   dout(20) << "OSD::ms_dispatch: " << *m << dendl;
@@ -7473,9 +7474,9 @@ void OSD::_dispatch(Message *m)
       // no map?  starting up?
       if (!osdmap) {
         dout(7) << "no OSDMap, not booted" << dendl;
-	logger->inc(l_osd_waiting_for_map);
+	    logger->inc(l_osd_waiting_for_map);
         waiting_for_osdmap.push_back(op);
-	op->mark_delayed("no osdmap");
+	    op->mark_delayed("no osdmap");
         break;
       }
 
@@ -8696,6 +8697,8 @@ bool OSD::require_same_or_newer_map(OpRequestRef& op, epoch_t epoch,
   assert(osd_lock.is_locked());
 
   // do they have a newer map?
+  // Op的epoch比OSD当前的epoch值大, 表示Op是在更新的版本下发的
+  // 将Op加入wait_for_map队列
   if (epoch > osdmap->get_epoch()) {
     dout(7) << "waiting for newer map epoch " << epoch
 	    << " > my " << osdmap->get_epoch() << " with " << m << dendl;
@@ -8786,10 +8789,12 @@ void OSD::handle_pg_create(OpRequestRef op)
 
   dout(10) << "handle_pg_create " << *m << dendl;
 
+  // mon发来的消息
   if (!require_mon_peer(op->get_req())) {
     return;
   }
 
+  // Op的epoch是否更新?
   if (!require_same_or_newer_map(op, m->epoch, false))
     return;
 
@@ -8870,10 +8875,10 @@ void OSD::handle_pg_create(OpRequestRef op)
   {
     lock_guard<mutex> pending_creates_locker{pending_creates_lock};
     if (pending_creates_from_mon == 0) {
-      last_pg_create_epoch = m->epoch;
+      last_pg_create_epoch = m->epoch;	// 更新最新一次创建PG时的epoch值
     }
   }
-  maybe_update_heartbeat_peers();
+  maybe_update_heartbeat_peers();	// 更新heartbeat_peers
 }
 
 

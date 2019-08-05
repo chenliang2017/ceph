@@ -217,13 +217,13 @@ struct entity_addr_t {
     }
   };
 
-  __u32 type;		//
+  __u32 type;		// luminous版本为TYPE_LEGACY
   __u32 nonce;		// 一般用进程ID填充该字段
   union {
     sockaddr sa;
     sockaddr_in sin;
     sockaddr_in6 sin6;
-  } u;
+  } u;				// IP信息
 
   entity_addr_t() : type(0), nonce(0) {
     memset(&u, 0, sizeof(u));
@@ -502,8 +502,8 @@ WRITE_CLASS_ENCODER_FEATURES(entity_addrvec_t);
  * a particular entity instance
  */
 struct entity_inst_t {
-  entity_name_t name;
-  entity_addr_t addr;
+  entity_name_t name;	// 服务信息(服务名称、服务的ID号)
+  entity_addr_t addr;	// 服务的地址信息
   entity_inst_t() {}
   entity_inst_t(entity_name_t n, const entity_addr_t& a) : name(n), addr(a) {}
   // cppcheck-suppress noExplicitConstructor

@@ -1797,6 +1797,9 @@ protected:
 
     /* States */
     struct Initial;
+
+	// 定义状态机RecoveryMachine, 初始状态为Initial
+	// 状态机创建后, 状态自动切换到Initial
     class RecoveryMachine : public boost::statechart::state_machine< RecoveryMachine, Initial > {
       RecoveryState *state;
     public:
@@ -1901,19 +1904,20 @@ protected:
 
     struct Reset;
 
+    // 定义了状态Initial, 该状态归属于状态机RecoveryMachine
     struct Initial : boost::statechart::state< Initial, RecoveryMachine >, NamedState {
       explicit Initial(my_context ctx);
       void exit();
 
       typedef boost::mpl::list <
-	boost::statechart::transition< Initialize, Reset >,
-	boost::statechart::custom_reaction< Load >,
+	boost::statechart::transition< Initialize, Reset >,		// 接收到Initialize事件, 无条件跳转到Reset状态
+	boost::statechart::custom_reaction< Load >,		// custom_reaction用户自定义事件处理, 必须配套react(const Load&)使用
 	boost::statechart::custom_reaction< NullEvt >,
 	boost::statechart::transition< boost::statechart::event_base, Crashed >
 	> reactions;
 
       boost::statechart::result react(const Load&);
-      boost::statechart::result react(const MNotifyRec&);
+      boost::statechart::result react(const MNotifyRec&);	 // react可以不需要custom_reaction
       boost::statechart::result react(const MInfoRec&);
       boost::statechart::result react(const MLogRec&);
       boost::statechart::result react(const boost::statechart::event_base&) {
@@ -1946,6 +1950,8 @@ protected:
 
     struct Start;
 
+    // 定义了状态Started, 该状态归属于状态机RecoveryMachine, Started有子状态Start
+    // 进入Started状态后, 自动切换到Start状态
     struct Started : boost::statechart::state< Started, RecoveryMachine, Start >, NamedState {
       explicit Started(my_context ctx);
       void exit();
@@ -1970,6 +1976,7 @@ protected:
     struct Primary;
     struct Stray;
 
+    // 定义状态Start, 该状态属于状态Started
     struct Start : boost::statechart::state< Start, Started >, NamedState {
       explicit Start(my_context ctx);
       void exit();
@@ -1985,6 +1992,9 @@ protected:
     struct Incomplete;
     struct Down;
 
+    // 定义状态Primary, 该状态属于Started, 有子状态Peering
+    // 进入Primary状态后, 自动切换到Peering状态
+    // 下层状态处理不了的事件, 默认直接抛给上层状态处理
     struct Primary : boost::statechart::state< Primary, Started, Peering >, NamedState {
       explicit Primary(my_context ctx);
       void exit();

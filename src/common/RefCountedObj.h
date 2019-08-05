@@ -23,16 +23,24 @@
 // re-include our assert to clobber the system one; fix dout:
 #include "include/assert.h"
 
+/**
+* mutable 表示可修改的，即使是const函数中
+* std::atomic 标准库的原子变量
+*/
+
+// 该结构体用来对Objecter进行引用计数
+
 struct RefCountedObject {
 private:
-  mutable std::atomic<uint64_t> nref;
+  mutable std::atomic<uint64_t> nref;	// 索引
   CephContext *cct;
 public:
   RefCountedObject(CephContext *c = NULL, int n=1) : nref(n), cct(c) {}
   virtual ~RefCountedObject() {
     assert(nref == 0);
   }
-  
+
+  // 使用对象, 索引加1
   const RefCountedObject *get() const {
     int v = ++nref;
     if (cct)
@@ -49,6 +57,8 @@ public:
 			     << dendl;
     return this;
   }
+
+  // 释放对象, 索引减1, 当索引为0时, 析构
   void put() const {
     CephContext *local_cct = cct;
     int v = --nref;
@@ -129,6 +139,7 @@ struct RefCountedWaitObject {
     c->put();
   }
 
+  // 使用对象, 索引加1
   RefCountedWaitObject *get() {
     nref++;
     return this;
@@ -147,6 +158,7 @@ struct RefCountedWaitObject {
     return ret;
   }
 
+  // 等待所有使用者一起释放
   void put_wait() {
     RefCountedCond *cond = c;
 

@@ -251,7 +251,7 @@ class C_handle_reap : public EventCallback {
 /*******************
  * AsyncMessenger
  */
-
+// type = "async+posix"
 AsyncMessenger::AsyncMessenger(CephContext *cct, entity_name_t name,
                                const std::string &type, string mname, uint64_t _nonce)
   : SimplePolicyMessenger(cct, name,mname, _nonce),

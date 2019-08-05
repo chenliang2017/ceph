@@ -225,8 +225,8 @@ namespace bi = boost::intrusive;
 
 class Message : public RefCountedObject {
 protected:
-  ceph_msg_header  header;      // headerelope
-  ceph_msg_footer  footer;
+  ceph_msg_header  header;      // headerelope				消息投
+  ceph_msg_footer  footer;		// 消息尾
   bufferlist       payload;  // "front" unaligned blob
   bufferlist       middle;   // "middle" unaligned blob
   bufferlist       data;     // data payload (page-alignment will be preserved where possible)

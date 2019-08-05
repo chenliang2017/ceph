@@ -18,6 +18,8 @@
 #define CEPH_COMMON_NET_UTILS_H
 #include "common/config.h"
 
+// 网路句柄层, 通过系统API操作套解字
+
 namespace ceph {
   class NetHandler {
     int generic_connect(const entity_addr_t& addr, const entity_addr_t& bind_addr, bool nonblock);

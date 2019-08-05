@@ -2059,7 +2059,7 @@ protected:
     assert(pg->is_locked());
     op_shardedwq.wake_pg_waiters(pg->info.pgid);
   }
-  epoch_t last_pg_create_epoch;
+  epoch_t last_pg_create_epoch;	// OSD上一次创建PG时的epoch
 
   void handle_pg_create(OpRequestRef op);
 

@@ -6456,7 +6456,7 @@ boost::statechart::result PG::RecoveryState::Initial::react(const Load& l)
 
   pg->update_store_on_load();
 
-  return transit< Reset >();
+  return transit< Reset >();	// 跳转到状态Reset, 该条语句执行后, Initial状态就会销毁
 }
 
 boost::statechart::result PG::RecoveryState::Initial::react(const MNotifyRec& notify)
@@ -6760,7 +6760,7 @@ boost::statechart::result PG::RecoveryState::Peering::react(const AdvMap& advmap
   
   pg->adjust_need_up_thru(advmap.osdmap);
   
-  return forward_event();
+  return forward_event();	// 继续抛给上层状态处理
 }
 
 boost::statechart::result PG::RecoveryState::Peering::react(const QueryState& q)

@@ -355,8 +355,8 @@ WRITE_CLASS_ENCODER(old_pg_t);
 // placement group id
 struct pg_t {
   uint64_t m_pool;		// pg所在的pool
-  uint32_t m_seed;		// pg的序号, 与pool中的pg数进行hash, 得到在该pool中的最终pgid
-  int32_t m_preferred;	// pg优先选择的主osd
+  uint32_t m_seed;		// pg的序号, 与pool中的pg数进行hash, 得到在该pool中的最终pgid, 该值为oid经过hash后得到的
+  int32_t m_preferred;	// pg优先选择的主osd(废弃)
 
   pg_t() : m_pool(0), m_seed(0), m_preferred(-1) {}
   pg_t(ps_t seed, uint64_t pool, int pref=-1) :
@@ -3322,12 +3322,13 @@ public:
   void dump(Formatter *f) const;
   static void generate_test_instances(list<ObjectModDesc*>& o);
 };
-WRITE_CLASS_ENCODER(ObjectModDesc)
+WRITE_CLASS_ENCODER(ObjectModDesc);
 
 
 /**
  * pg_log_entry_t - single entry/event in pg log
  *
+ * 单条日志属性
  */
 struct pg_log_entry_t {
   enum {
@@ -3457,7 +3458,7 @@ struct pg_log_entry_t {
   static void generate_test_instances(list<pg_log_entry_t*>& o);
 
 };
-WRITE_CLASS_ENCODER(pg_log_entry_t)
+WRITE_CLASS_ENCODER(pg_log_entry_t);
 
 ostream& operator<<(ostream& out, const pg_log_entry_t& e);
 
@@ -3498,7 +3499,7 @@ struct pg_log_dup_t {
 
   friend std::ostream& operator<<(std::ostream& out, const pg_log_dup_t& e);
 };
-WRITE_CLASS_ENCODER(pg_log_dup_t)
+WRITE_CLASS_ENCODER(pg_log_dup_t);
 
 std::ostream& operator<<(std::ostream& out, const pg_log_dup_t& e);
 

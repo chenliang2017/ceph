@@ -155,48 +155,48 @@ void DispatchQueue::entry()
     while (!mqueue.empty()) {
       QueueItem qitem = mqueue.dequeue();
       if (!qitem.is_code())
-	remove_arrival(qitem.get_message());
+		remove_arrival(qitem.get_message());
       lock.Unlock();
 
       if (qitem.is_code()) {
-	if (cct->_conf->ms_inject_internal_delays &&
-	    cct->_conf->ms_inject_delay_probability &&
-	    (rand() % 10000)/10000.0 < cct->_conf->ms_inject_delay_probability) {
-	  utime_t t;
-	  t.set_from_double(cct->_conf->ms_inject_internal_delays);
-	  ldout(cct, 1) << "DispatchQueue::entry  inject delay of " << t
-			<< dendl;
-	  t.sleep();
-	}
-	switch (qitem.get_code()) {
-	case D_BAD_REMOTE_RESET:
-	  msgr->ms_deliver_handle_remote_reset(qitem.get_connection());
-	  break;
-	case D_CONNECT:
-	  msgr->ms_deliver_handle_connect(qitem.get_connection());
-	  break;
-	case D_ACCEPT:
-	  msgr->ms_deliver_handle_accept(qitem.get_connection());
-	  break;
-	case D_BAD_RESET:
-	  msgr->ms_deliver_handle_reset(qitem.get_connection());
-	  break;
-	case D_CONN_REFUSED:
-	  msgr->ms_deliver_handle_refused(qitem.get_connection());
-	  break;
-	default:
-	  ceph_abort();
-	}
+		if (cct->_conf->ms_inject_internal_delays &&
+		    cct->_conf->ms_inject_delay_probability &&
+		    (rand() % 10000)/10000.0 < cct->_conf->ms_inject_delay_probability) {
+		  utime_t t;
+		  t.set_from_double(cct->_conf->ms_inject_internal_delays);
+		  ldout(cct, 1) << "DispatchQueue::entry  inject delay of " << t
+				<< dendl;
+		  t.sleep();
+		}
+		switch (qitem.get_code()) {
+		case D_BAD_REMOTE_RESET:
+		  msgr->ms_deliver_handle_remote_reset(qitem.get_connection());
+		  break;
+		case D_CONNECT:
+		  msgr->ms_deliver_handle_connect(qitem.get_connection());
+		  break;
+		case D_ACCEPT:
+		  msgr->ms_deliver_handle_accept(qitem.get_connection());
+		  break;
+		case D_BAD_RESET:
+		  msgr->ms_deliver_handle_reset(qitem.get_connection());
+		  break;
+		case D_CONN_REFUSED:
+		  msgr->ms_deliver_handle_refused(qitem.get_connection());
+		  break;
+		default:
+		  ceph_abort();
+		}
       } else {
-	Message *m = qitem.get_message();
-	if (stop) {
-	  ldout(cct,10) << " stop flag set, discarding " << m << " " << *m << dendl;
-	  m->put();
-	} else {
-	  uint64_t msize = pre_dispatch(m);
-	  msgr->ms_deliver_dispatch(m);
-	  post_dispatch(m, msize);
-	}
+		Message *m = qitem.get_message();
+		if (stop) {
+		  ldout(cct,10) << " stop flag set, discarding " << m << " " << *m << dendl;
+		  m->put();
+		} else {
+		  uint64_t msize = pre_dispatch(m);
+		  msgr->ms_deliver_dispatch(m);
+		  post_dispatch(m, msize);
+		}
       }
 
       lock.Lock();

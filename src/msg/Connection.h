@@ -34,6 +34,7 @@
 // ======================================================
 
 // abstract Connection, for keeping per-connection state
+// socket连接的封装
 
 class Message;
 class Messenger;
@@ -201,6 +202,7 @@ public:
 
 };
 
+// boost库的侵入式指针
 typedef boost::intrusive_ptr<Connection> ConnectionRef;
 
 

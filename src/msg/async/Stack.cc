@@ -61,6 +61,7 @@ std::function<void ()> NetworkStack::add_thread(unsigned i)
   };
 }
 
+// t = "async+posix"
 std::shared_ptr<NetworkStack> NetworkStack::create(CephContext *c, const string &t)
 {
   if (t == "posix")

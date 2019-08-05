@@ -29,7 +29,7 @@ struct MOSDPGCreate : public Message {
   const static int COMPAT_VERSION = 3;
 
   version_t          epoch = 0;
-  map<pg_t,pg_create_t> mkpg;
+  map<pg_t,pg_create_t> mkpg;	// 待创建PG列表
   map<pg_t,utime_t> ctimes;
 
   MOSDPGCreate()

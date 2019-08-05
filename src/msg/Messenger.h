@@ -666,7 +666,7 @@ public:
 	 p != dispatchers.end();
 	 ++p) {
       if ((*p)->ms_dispatch(m))
-	return;
+		return;
     }
     lsubdout(cct, ms, 0) << "ms_deliver_dispatch: unhandled message " << m << " " << *m << " from "
 			 << m->get_source_inst() << dendl;

@@ -35,10 +35,12 @@ using namespace std;
 class CephContext;
 
 struct PGLog : DoutPrefixProvider {
-  DoutPrefixProvider *prefix_provider;
+  DoutPrefixProvider *prefix_provider;	// PG类中初始化PGLog时, prefix_provider为nullptr
+  // 返回空字符串""
   string gen_prefix() const override {
     return prefix_provider ? prefix_provider->gen_prefix() : "";
   }
+  // ditto
   unsigned get_subsys() const override {
     return prefix_provider ? prefix_provider->get_subsys() :
       (unsigned)ceph_subsys_osd;
@@ -646,7 +648,7 @@ public:
 
   // cppcheck-suppress noExplicitConstructor
   PGLog(CephContext *cct, DoutPrefixProvider *dpp = nullptr) :
-    prefix_provider(dpp),
+    prefix_provider(dpp),				// 在PG类中初始化PGLog时, 未对dpp赋值, 故prefix_provider为nullptr
     dirty_from(eversion_t::max()),
     writeout_from(eversion_t::max()),
     dirty_from_dups(eversion_t::max()),
