@@ -120,7 +120,8 @@ fail:
 #endif
 }
 
-
+// close-on-exec
+// 当fork子进程后，仍然可以使用fd。但子进程执行exec后系统就会字段关闭子进程中的fd
 int socket_cloexec(int domain, int type, int protocol)
 {
 #ifdef SOCK_CLOEXEC

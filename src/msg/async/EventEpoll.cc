@@ -23,6 +23,8 @@
 #undef dout_prefix
 #define dout_prefix *_dout << "EpollDriver."
 
+// epoll实现多路I/O复用
+
 int EpollDriver::init(EventCenter *c, int nevent)
 {
   events = (struct epoll_event*)malloc(sizeof(struct epoll_event)*nevent);
@@ -62,7 +64,7 @@ int EpollDriver::add_event(int fd, int cur_mask, int add_mask)
   int op;
   op = cur_mask == EVENT_NONE ? EPOLL_CTL_ADD: EPOLL_CTL_MOD;
 
-  ee.events = EPOLLET;
+  ee.events = EPOLLET;	// 边沿触发
   add_mask |= cur_mask; /* Merge old events */
   if (add_mask & EVENT_READABLE)
     ee.events |= EPOLLIN;
@@ -115,10 +117,12 @@ int EpollDriver::resize_events(int newsize)
   return 0;
 }
 
+// tvp: 30s
 int EpollDriver::event_wait(vector<FiredFileEvent> &fired_events, struct timeval *tvp)
 {
   int retval, numevents = 0;
 
+  // epoll_wait阻塞等待, 直到有事件发生或者超时, 超时时返回值为0
   retval = epoll_wait(epfd, events, size,
                       tvp ? (tvp->tv_sec*1000 + tvp->tv_usec/1000) : -1);
   if (retval > 0) {

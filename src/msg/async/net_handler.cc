@@ -33,11 +33,13 @@
 
 namespace ceph{
 
+// 创建套接字
 int NetHandler::create_socket(int domain, bool reuse_addr)
 {
   int s;
   int r = 0;
 
+  // 设置close-on-exec属性
   if ((s = socket_cloexec(domain, SOCK_STREAM, 0)) == -1) {
     r = errno;
     lderr(cct) << __func__ << " couldn't create socket " << cpp_strerror(r) << dendl;
@@ -49,6 +51,7 @@ int NetHandler::create_socket(int domain, bool reuse_addr)
    * will be able to close/open sockets a zillion of times */
   if (reuse_addr) {
     int on = 1;
+	// 设置地址重用属性
     if (::setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) {
       r = errno;
       lderr(cct) << __func__ << " setsockopt SO_REUSEADDR failed: "
@@ -62,6 +65,7 @@ int NetHandler::create_socket(int domain, bool reuse_addr)
   return s;
 }
 
+// 设置非阻塞属性
 int NetHandler::set_nonblock(int sd)
 {
   int flags;
@@ -88,6 +92,7 @@ int NetHandler::set_socket_options(int sd, bool nodelay, int size)
 {
   int r = 0;
   // disable Nagle algorithm?
+  // 允许小包发送, 默认为true
   if (nodelay) {
     int flag = 1;
     r = ::setsockopt(sd, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(flag));
@@ -96,6 +101,7 @@ int NetHandler::set_socket_options(int sd, bool nodelay, int size)
       ldout(cct, 0) << "couldn't set TCP_NODELAY: " << cpp_strerror(r) << dendl;
     }
   }
+  // 设置接收缓冲区大小, size默认为0, 采用系统默认的缓存大小
   if (size) {
     r = ::setsockopt(sd, SOL_SOCKET, SO_RCVBUF, (void*)&size, sizeof(size));
     if (r < 0)  {
@@ -173,6 +179,7 @@ int NetHandler::generic_connect(const entity_addr_t& addr, const entity_addr_t &
     }
   }
 
+  // 默认支持小包发送, 采用系统默认缓冲区大小
   set_socket_options(s, cct->_conf->ms_tcp_nodelay, cct->_conf->ms_tcp_rcvbuf);
 
   {
@@ -189,6 +196,7 @@ int NetHandler::generic_connect(const entity_addr_t& addr, const entity_addr_t &
     }
   }
 
+  // net.ipv4.tcp_syn_retries重试次数, 影响了connect函数的超时时间
   ret = ::connect(s, addr.get_sockaddr(), addr.get_sockaddr_len());
   if (ret < 0) {
     ret = errno;

@@ -19,6 +19,7 @@
 #include "common/config.h"
 
 // 网路句柄层, 通过系统API操作套解字
+// 根据接口分析, 主要服务于客户端
 
 namespace ceph {
   class NetHandler {

@@ -40,8 +40,8 @@ class Timer;
 
 class Messenger {
 private:
-  list<Dispatcher*> dispatchers;
-  list <Dispatcher*> fast_dispatchers;
+  list<Dispatcher*> dispatchers;		// 队列分发订阅者
+  list<Dispatcher*> fast_dispatchers;	// 快速分发订阅者
   ZTracer::Endpoint trace_endpoint;
 
   void set_endpoint_addr(const entity_addr_t& a,
@@ -49,7 +49,7 @@ private:
 
 protected:
   /// the "name" of the local daemon. eg client.99
-  entity_inst_t my_inst;
+  entity_inst_t my_inst;				// 服务信息和地址信息
   int default_send_priority;
   /// set to true once the Messenger has started, and set to false on shutdown
   bool started;
@@ -617,8 +617,8 @@ public:
     for (list<Dispatcher*>::iterator p = fast_dispatchers.begin();
 	 p != fast_dispatchers.end();
 	 ++p) {
-      if ((*p)->ms_can_fast_dispatch(m))
-	return true;
+      if ((*p)->ms_can_fast_dispatch(m))	// 找到第一个可以处理该消息的订阅者
+		return true;
     }
     return false;
   }
@@ -635,9 +635,9 @@ public:
     for (list<Dispatcher*>::iterator p = fast_dispatchers.begin();
 	 p != fast_dispatchers.end();
 	 ++p) {
-      if ((*p)->ms_can_fast_dispatch(m)) {
-	(*p)->ms_fast_dispatch(m);
-	return;
+      if ((*p)->ms_can_fast_dispatch(m)) {	// 找到第一个可以处理该消息的订阅者
+		(*p)->ms_fast_dispatch(m);	// 交给第一个可以处理这个消息的订阅者处理
+		return;
       }
     }
     ceph_abort();
@@ -665,7 +665,7 @@ public:
     for (list<Dispatcher*>::iterator p = dispatchers.begin();
 	 p != dispatchers.end();
 	 ++p) {
-      if ((*p)->ms_dispatch(m))
+      if ((*p)->ms_dispatch(m))		// 交给第一个可以处理该消息的订阅者处理
 		return;
     }
     lsubdout(cct, ms, 0) << "ms_deliver_dispatch: unhandled message " << m << " " << *m << " from "

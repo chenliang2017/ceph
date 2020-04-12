@@ -2241,15 +2241,15 @@ void PrimaryLogPG::do_op(OpRequestRef& op)
   }
 
   bool in_hit_set = false;
-  if (hit_set) {
-    if (obc.get()) {
+  if (hit_set) {  //缓存池时hit_set才不为空
+    if (obc.get()) {  //缓存池中能够找到对象的上下文信息, 表示对象在缓存池中存在
       if (obc->obs.oi.soid != hobject_t() && hit_set->contains(obc->obs.oi.soid))
-	in_hit_set = true;
+	    in_hit_set = true;  //缓存池中存在, 且在hit_set中
     } else {
       if (missing_oid != hobject_t() && hit_set->contains(missing_oid))
-        in_hit_set = true;
+        in_hit_set = true;  //缓存池中不存在, 但是在hit_set缓存信息中能够找到
     }
-    if (!op->hitset_inserted) {
+    if (!op->hitset_inserted) {  //对象不在hit_set中, 就插入hit_set中
       hit_set->insert(oid);
       op->hitset_inserted = true;
       if (hit_set->is_full() ||
@@ -2260,7 +2260,7 @@ void PrimaryLogPG::do_op(OpRequestRef& op)
   }
 
   if (agent_state) {
-    if (agent_choose_mode(false, op))
+    if (agent_choose_mode(false, op))  //设置PG的flush或者evict模式
       return;
   }
 
@@ -2278,7 +2278,7 @@ void PrimaryLogPG::do_op(OpRequestRef& op)
 			 missing_oid,
 			 false,
 			 in_hit_set))
-    return;
+    return;  //缓存池未命中
 
   if (r && (r != -ENOENT || !obc)) {
     // copy the reqids for copy get on ENOENT
@@ -2525,13 +2525,13 @@ PrimaryLogPG::cache_result_t PrimaryLogPG::maybe_handle_cache_detail(
 {
   // return quickly if caching is not enabled
   if (pool.info.cache_mode == pg_pool_t::CACHEMODE_NONE)
-    return cache_result_t::NOOP;
+    return cache_result_t::NOOP; //返回NOOP时, 在缓存池中继续io操作落盘
 
   if (op &&
       op->get_req() &&
       op->get_req()->get_type() == CEPH_MSG_OSD_OP &&
       (static_cast<const MOSDOp *>(op->get_req())->get_flags() &
-       CEPH_OSD_FLAG_IGNORE_CACHE)) {
+       CEPH_OSD_FLAG_IGNORE_CACHE)) {  //直接返回
     dout(20) << __func__ << ": ignoring cache due to flag" << dendl;
     return cache_result_t::NOOP;
   }
@@ -2564,7 +2564,7 @@ PrimaryLogPG::cache_result_t PrimaryLogPG::maybe_handle_cache_detail(
     return cache_result_t::NOOP;
   }
 
-  if (obc.get() && obc->obs.exists) {
+  if (obc.get() && obc->obs.exists) {  //缓存命中
     osd->logger->inc(l_osd_op_cache_hit);
     return cache_result_t::NOOP;
   }
@@ -2591,54 +2591,56 @@ PrimaryLogPG::cache_result_t PrimaryLogPG::maybe_handle_cache_detail(
   OpRequestRef promote_op;
 
   switch (pool.info.cache_mode) {
-  case pg_pool_t::CACHEMODE_WRITEBACK:
+  case pg_pool_t::CACHEMODE_WRITEBACK:  //默认使用模式
     if (agent_state &&
-	agent_state->evict_mode == TierAgentState::EVICT_MODE_FULL) {
-      if (!op->may_write() && !op->may_cache() &&
-	  !write_ordered && !must_promote) {
-	dout(20) << __func__ << " cache pool full, proxying read" << dendl;
-	do_proxy_read(op);
-	return cache_result_t::HANDLED_PROXY;
+	agent_state->evict_mode == TierAgentState::EVICT_MODE_FULL) {  //当前cache池已满
+      if (!op->may_write() && !op->may_cache() &&  
+	      !write_ordered && !must_promote)   //只读操作
+	  {
+	    dout(20) << __func__ << " cache pool full, proxying read" << dendl;
+	    do_proxy_read(op);  //代理读
+	    return cache_result_t::HANDLED_PROXY;
       }
       dout(20) << __func__ << " cache pool full, waiting" << dendl;
-      block_write_on_full_cache(missing_oid, op);
+      block_write_on_full_cache(missing_oid, op);  //写操作就堵塞
       return cache_result_t::BLOCKED_FULL;
     }
 
-    if (must_promote || (!hit_set && !op->need_skip_promote())) {
+    if (must_promote || (!hit_set && !op->need_skip_promote())) {  //read-only?
       promote_object(obc, missing_oid, oloc, op, promote_obc);
       return cache_result_t::BLOCKED_PROMOTE;
     }
 
+    //写操作
     if (op->may_write() || op->may_cache()) {
       if (can_proxy_write) {
-        do_proxy_write(op, missing_oid);
+        do_proxy_write(op, missing_oid);  //代理写
       } else {
-	// promote if can't proxy the write
-	promote_object(obc, missing_oid, oloc, op, promote_obc);
-	return cache_result_t::BLOCKED_PROMOTE;
+	    // promote if can't proxy the write
+	    promote_object(obc, missing_oid, oloc, op, promote_obc);  //不能代理写, 就先从base pool拉去对象
+	    return cache_result_t::BLOCKED_PROMOTE;
       }
 
-      // Promote too?
+      // Promote too? 代理写的时候, 还是需要判断一下是否需要从base pool拉取数据
       if (!op->need_skip_promote() && 
           maybe_promote(obc, missing_oid, oloc, in_hit_set,
 	              pool.info.min_write_recency_for_promote,
 		      OpRequestRef(),
 		      promote_obc)) {
-	return cache_result_t::BLOCKED_PROMOTE;
+	    return cache_result_t::BLOCKED_PROMOTE;
       }
       return cache_result_t::HANDLED_PROXY;
-    } else {
-      do_proxy_read(op);
+    } else {  //读操作
+      do_proxy_read(op);  //代理读
 
       // Avoid duplicate promotion
       if (obc.get() && obc->is_blocked()) {
-	if (promote_obc)
-	  *promote_obc = obc;
+	    if (promote_obc)
+	      *promote_obc = obc;
         return cache_result_t::BLOCKED_PROMOTE;
       }
 
-      // Promote too?
+      // Promote too? 代理读的时候, 还是需要判断一下是否需要从base pool拉取数据
       if (!op->need_skip_promote()) {
         (void)maybe_promote(obc, missing_oid, oloc, in_hit_set,
                             pool.info.min_read_recency_for_promote,
@@ -10114,6 +10116,9 @@ int PrimaryLogPG::find_object_context(const hobject_t& oid,
 {
   FUNCTRACE();
   assert(oid.pool == static_cast<int64_t>(info.pgid.pool()));
+
+  //head对象处理
+  
   // want the head?
   if (oid.snap == CEPH_NOSNAP) {
     ObjectContextRef obc = get_object_context(oid, can_create);
@@ -10130,6 +10135,8 @@ int PrimaryLogPG::find_object_context(const hobject_t& oid,
 
     return 0;
   }
+
+  //snapdir对象处理
 
   hobject_t head = oid.get_head();
 
@@ -10161,13 +10168,15 @@ int PrimaryLogPG::find_object_context(const hobject_t& oid,
     return 0;
   }
 
+  //快照对象处理
+
   // we want a snap
   if (!map_snapid_to_clone && pool.info.is_removed_snap(oid.snap)) {
     dout(10) << __func__ << " snap " << oid.snap << " is removed" << dendl;
     return -ENOENT;
   }
 
-  SnapSetContext *ssc = get_snapset_context(oid, can_create);
+  SnapSetContext *ssc = get_snapset_context(oid, can_create);  //获取快照对象上下文
   if (!ssc || !(ssc->exists || can_create)) {
     dout(20) << __func__ << " " << oid << " no snapset" << dendl;
     if (pmissing)
@@ -10427,8 +10436,7 @@ SnapSetContext *PrimaryLogPG::get_snapset_context(
 {
   Mutex::Locker l(snapset_contexts_lock);
   SnapSetContext *ssc;
-  map<hobject_t, SnapSetContext*>::iterator p = snapset_contexts.find(
-    oid.get_snapdir());
+  map<hobject_t, SnapSetContext*>::iterator p = snapset_contexts.find(oid.get_snapdir());
   if (p != snapset_contexts.end()) {
     if (can_create || p->second->exists) {
       ssc = p->second;
@@ -10437,10 +10445,10 @@ SnapSetContext *PrimaryLogPG::get_snapset_context(
     }
   } else {
     bufferlist bv;
-    if (!attrs) {
+    if (!attrs) {  //attrs默认为NULL
       int r = -ENOENT;
       if (!(oid.is_head() && !oid_existed))
-	r = pgbackend->objects_get_attr(oid.get_head(), SS_ATTR, &bv);
+	r = pgbackend->objects_get_attr(oid.get_head(), SS_ATTR, &bv);  //从store层获取属性信息
       if (r < 0) {
 	// try _snapset
 	if (!(oid.is_snapdir() && !oid_existed))
@@ -12713,6 +12721,7 @@ hobject_t PrimaryLogPG::get_hit_set_archive_object(utime_t start,
   return hoid;
 }
 
+//清楚hieset相关记录
 void PrimaryLogPG::hit_set_clear()
 {
   dout(20) << __func__ << dendl;
@@ -13489,6 +13498,7 @@ void PrimaryLogPG::agent_choose_mode_restart()
   unlock();
 }
 
+//计算flush和evict模式
 bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
 {
   bool requeued = false;
@@ -13502,14 +13512,14 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
   TierAgentState::evict_mode_t evict_mode = TierAgentState::EVICT_MODE_IDLE;
   unsigned evict_effort = 0;
 
-  if (info.stats.stats_invalid) {
+  if (info.stats.stats_invalid) {  //当前统计信息无效
     // idle; stats can't be trusted until we scrub.
     dout(20) << __func__ << " stats invalid (post-split), idle" << dendl;
-    goto skip_calc;
+    goto skip_calc;  //暂不计算flush和evict
   }
 
   {
-  uint64_t divisor = pool.info.get_pg_num_divisor(info.pgid.pgid);
+  uint64_t divisor = pool.info.get_pg_num_divisor(info.pgid.pgid);  //缓存池中PG数量
   assert(divisor > 0);
 
   // adjust (effective) user objects down based on the number
@@ -13518,7 +13528,7 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
   uint64_t unflushable = info.stats.stats.sum.num_objects_hit_set_archive;
 
   // also exclude omap objects if ec backing pool
-  const pg_pool_t *base_pool = get_osdmap()->get_pg_pool(pool.info.tier_of);
+  const pg_pool_t *base_pool = get_osdmap()->get_pg_pool(pool.info.tier_of);  //冷池
   assert(base_pool);
   if (!base_pool->supports_omap())
     unflushable += info.stats.stats.sum.num_objects_omap;
@@ -13536,7 +13546,7 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
   num_user_bytes += num_overhead_bytes;
 
   // also reduce the num_dirty by num_objects_omap
-  int64_t num_dirty = info.stats.stats.sum.num_objects_dirty;
+  int64_t num_dirty = info.stats.stats.sum.num_objects_dirty;  //脏对象数量
   if (!base_pool->supports_omap()) {
     if (num_dirty > info.stats.stats.sum.num_objects_omap)
       num_dirty -= info.stats.stats.sum.num_objects_omap;
@@ -13562,10 +13572,10 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
 	   << dendl;
 
   // get dirty, full ratios
-  uint64_t dirty_micro = 0;
-  uint64_t full_micro = 0;
-  if (pool.info.target_max_bytes && num_user_objects > 0) {
-    uint64_t avg_size = num_user_bytes / num_user_objects;
+  uint64_t dirty_micro = 0;  //脏数据的比例(百万分之一)
+  uint64_t full_micro = 0;   //数据满的比例(百万分之一)
+  if (pool.info.target_max_bytes && num_user_objects > 0) {  //实际中设置该字段
+    uint64_t avg_size = num_user_bytes / num_user_objects;  //每个对象的平均大小
     dirty_micro =
       num_dirty * avg_size * 1000000 /
       MAX(pool.info.target_max_bytes / divisor, 1);
@@ -13573,7 +13583,7 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
       num_user_objects * avg_size * 1000000 /
       MAX(pool.info.target_max_bytes / divisor, 1);
   }
-  if (pool.info.target_max_objects > 0) {
+  if (pool.info.target_max_objects > 0) {  //未设置, 不走
     uint64_t dirty_objects_micro =
       num_dirty * 1000000 /
       MAX(pool.info.target_max_objects / divisor, 1);
@@ -13590,8 +13600,8 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
 	   << dendl;
 
   // flush mode
-  uint64_t flush_target = pool.info.cache_target_dirty_ratio_micro;
-  uint64_t flush_high_target = pool.info.cache_target_dirty_high_ratio_micro;
+  uint64_t flush_target = pool.info.cache_target_dirty_ratio_micro;  //0.4
+  uint64_t flush_high_target = pool.info.cache_target_dirty_high_ratio_micro;  //0.6
   uint64_t flush_slop = (float)flush_target * cct->_conf->osd_agent_slop;
   if (restart || agent_state->flush_mode == TierAgentState::FLUSH_MODE_IDLE) {
     flush_target += flush_slop;
@@ -13607,8 +13617,8 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
     flush_mode = TierAgentState::FLUSH_MODE_LOW;
   }
 
-  // evict mode
-  uint64_t evict_target = pool.info.cache_target_full_ratio_micro;
+  // evict mode  
+  uint64_t evict_target = pool.info.cache_target_full_ratio_micro;  //0.8
   uint64_t evict_slop = (float)evict_target * cct->_conf->osd_agent_slop;
   if (restart || agent_state->evict_mode == TierAgentState::EVICT_MODE_IDLE)
     evict_target += evict_slop;
@@ -13640,28 +13650,28 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
   }
 
   skip_calc:
-  bool old_idle = agent_state->is_idle();
-  if (flush_mode != agent_state->flush_mode) {
+  bool old_idle = agent_state->is_idle();  //空跑?
+  if (flush_mode != agent_state->flush_mode) {  //本次算出来的flush_mode和当前正在使用的flush_mode不同
     dout(5) << __func__ << " flush_mode "
 	    << TierAgentState::get_flush_mode_name(agent_state->flush_mode)
 	    << " -> "
 	    << TierAgentState::get_flush_mode_name(flush_mode)
 	    << dendl;
     if (flush_mode == TierAgentState::FLUSH_MODE_HIGH) {
-      osd->agent_inc_high_count();
+      osd->agent_inc_high_count();  //FLUSH_MODE_HIGH时, 调整agent_entry线程允许的最大op数
       info.stats.stats.sum.num_flush_mode_high = 1;
     } else if (flush_mode == TierAgentState::FLUSH_MODE_LOW) {
       info.stats.stats.sum.num_flush_mode_low = 1;
     }
     if (agent_state->flush_mode == TierAgentState::FLUSH_MODE_HIGH) {
-      osd->agent_dec_high_count();
+      osd->agent_dec_high_count();  //退出FLUSH_MODE_HIGH时, 调整agent_entry线程允许的最大op数
       info.stats.stats.sum.num_flush_mode_high = 0;
     } else if (agent_state->flush_mode == TierAgentState::FLUSH_MODE_LOW) {
       info.stats.stats.sum.num_flush_mode_low = 0;
     }
-    agent_state->flush_mode = flush_mode;
+    agent_state->flush_mode = flush_mode; //更新flush_mode
   }
-  if (evict_mode != agent_state->evict_mode) {
+  if (evict_mode != agent_state->evict_mode) { //本次算出来的evict_mode和当前正在使用的evict_mode不同
     dout(5) << __func__ << " evict_mode "
 	    << TierAgentState::get_evict_mode_name(agent_state->evict_mode)
 	    << " -> "
@@ -13670,7 +13680,7 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
     if (agent_state->evict_mode == TierAgentState::EVICT_MODE_FULL &&
 	is_active()) {
       if (op)
-	requeue_op(op);
+	    requeue_op(op);
       requeue_ops(waiting_for_flush);
       requeue_ops(waiting_for_active);
       requeue_ops(waiting_for_scrub);
@@ -13688,7 +13698,7 @@ bool PrimaryLogPG::agent_choose_mode(bool restart, OpRequestRef op)
     } else if (agent_state->evict_mode == TierAgentState::EVICT_MODE_FULL) {
       info.stats.stats.sum.num_evict_mode_full = 0;
     }
-    agent_state->evict_mode = evict_mode;
+    agent_state->evict_mode = evict_mode;  //更新evict_mode
   }
   uint64_t old_effort = agent_state->evict_effort;
   if (evict_effort != agent_state->evict_effort) {

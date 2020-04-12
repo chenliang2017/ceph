@@ -23,8 +23,7 @@ HitSet::HitSet(const HitSet::Params& params)
   switch (params.get_type()) {
   case TYPE_BLOOM:
     {
-      BloomHitSet::Params *p =
-	static_cast<BloomHitSet::Params*>(params.impl.get());
+      BloomHitSet::Params *p = static_cast<BloomHitSet::Params*>(params.impl.get());
       impl.reset(new BloomHitSet(p));
     }
     break;

@@ -41,10 +41,10 @@ class Messenger;
 
 struct Connection : public RefCountedObject {
   mutable Mutex lock;
-  Messenger *msgr;
-  RefCountedObject *priv;
-  int peer_type;
-  entity_addr_t peer_addr;
+  Messenger *msgr;			// Connection归属的Messenger 
+  RefCountedObject *priv; 	// 连接的私有数据
+  int peer_type;			// 对端的服务类型
+  entity_addr_t peer_addr;  // 对象的地址信息
   utime_t last_keepalive, last_keepalive_ack;
 private:
   uint64_t features;

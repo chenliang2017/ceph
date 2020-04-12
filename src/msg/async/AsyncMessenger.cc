@@ -270,7 +270,7 @@ AsyncMessenger::AsyncMessenger(CephContext *cct, entity_name_t name,
   ceph_spin_init(&global_seq_lock);
   StackSingleton *single;
   cct->lookup_or_create_singleton_object<StackSingleton>(single, "AsyncMessenger::NetworkStack::"+transport_type);
-  single->ready(transport_type);
+  single->ready(transport_type); // 每个单例一个stack
   stack = single->stack.get();
   stack->start();
   local_worker = stack->get_worker();

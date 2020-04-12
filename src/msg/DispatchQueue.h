@@ -30,6 +30,8 @@ class Messenger;
 class Message;
 struct Connection;
 
+// 消息分发队列, 消息分发处理的核心模块
+
 /**
  * The DispatchQueue contains all the connections which have Messages
  * they want to be dispatched, carefully organized by Message priority
@@ -62,14 +64,16 @@ class DispatchQueue {
   };
     
   CephContext *cct;
-  Messenger *msgr;
+  Messenger *msgr;		// 绑定的Messenger, 一个Messenger对应一个DispatchQueue
+
+  // 用来对mqueue进行保护
   mutable Mutex lock;
   Cond cond;
 
-  PrioritizedQueue<QueueItem, uint64_t> mqueue;
+  PrioritizedQueue<QueueItem, uint64_t> mqueue;	// 优先级队列, 存放接收到的消息
 
-  set<pair<double, Message*> > marrival;
-  map<Message *, set<pair<double, Message*> >::iterator> marrival_map;
+  set<pair<double, Message*> > marrival;	// 接收到消息的集合, pair为<recv_time, message>
+  map<Message *, set<pair<double, Message*> >::iterator> marrival_map; // <消息, 消息在集合中映射的位置>
   void add_arrival(Message *m) {
     marrival_map.insert(
       make_pair(
@@ -101,8 +105,9 @@ class DispatchQueue {
       dq->entry();
       return 0;
     }
-  } dispatch_thread;
+  } dispatch_thread;	// 内部消息分发线程, 分发处理mqueue中得消息
 
+  // 分发本地消息, 自己发给自己的消息
   Mutex local_delivery_lock;
   Cond local_delivery_cond;
   bool stop_local_delivery;

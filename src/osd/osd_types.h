@@ -1323,12 +1323,12 @@ public:
 
   unsigned pg_num_mask, pgp_num_mask;
 
-  set<uint64_t> tiers;      ///< pools that are tiers of us
-  int64_t tier_of;         ///< pool for which we are a tier
+  set<uint64_t> tiers;      ///< pools that are tiers of us, 数据池绑定的缓存池, 一个base pool可以有若干cache pool
+  int64_t tier_of;         ///< pool for which we are a tier, 数据池, 一个数据池可以绑定若干个cache pool
   // Note that write wins for read+write ops
   int64_t read_tier;       ///< pool/tier for objecter to direct reads to
   int64_t write_tier;      ///< pool/tier for objecter to direct writes to
-  cache_mode_t cache_mode;  ///< cache pool mode
+  cache_mode_t cache_mode;  ///< cache pool mode, 缓存类型, 默认使用CACHEMODE_WRITEBACK默认
 
   bool is_tier() const { return tier_of >= 0; }
   bool has_tiers() const { return !tiers.empty(); }

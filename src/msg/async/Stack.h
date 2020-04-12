@@ -63,6 +63,7 @@ class ServerSocketImpl {
 ///
 /// A \c ConnectedSocket represents a full-duplex stream between
 /// two endpoints, a local endpoint and a remote endpoint.
+/// 代表已连接的tcp套接字
 class ConnectedSocket {
   std::unique_ptr<ConnectedSocketImpl> _csi;
 
@@ -137,6 +138,7 @@ class ConnectedSocket {
 /// @{
 
 /// A listening socket, waiting to accept incoming network connections.
+/// 监听套接字类, 服务端使用
 class ServerSocket {
   std::unique_ptr<ServerSocketImpl> _ssi;
  public:

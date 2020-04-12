@@ -394,7 +394,7 @@ int EventCenter::process_events(int timeout_microseconds,  ceph::timespan *worki
 
   ldout(cct, 30) << __func__ << " wait second " << tv.tv_sec << " usec " << tv.tv_usec << dendl;
   vector<FiredFileEvent> fired_events;
-  numevents = driver->event_wait(fired_events, &tv);
+  numevents = driver->event_wait(fired_events, &tv);	// tv结构时间为30s
   auto working_start = ceph::mono_clock::now();
   for (int j = 0; j < numevents; j++) {
     int rfired = 0;
@@ -457,7 +457,7 @@ void EventCenter::dispatch_event_external(EventCallbackRef e)
   uint64_t num = ++external_num_events;
   external_lock.unlock();
   if (!in_thread() && wake)
-    wakeup();
+    wakeup(); // 触发driver->event_wait()函数立刻返回
 
   ldout(cct, 30) << __func__ << " " << e << " pending " << num << dendl;
 }

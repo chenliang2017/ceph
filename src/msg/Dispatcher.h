@@ -29,6 +29,8 @@ class CryptoKey;
 class CephContext;
 class AuthAuthorizerChallenge;
 
+// ¶©ÔÄÕß»ùÀà
+
 class Dispatcher {
 public:
   explicit Dispatcher(CephContext *cct_)
