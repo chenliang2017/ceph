@@ -273,9 +273,10 @@ public:
   T dequeue() final {
     assert(!empty());
 
+    //严格优先级队列：按消息优先级顺序出队
     if (!(high_queue.empty())) {
-      T ret = high_queue.rbegin()->second.front().second;
-      high_queue.rbegin()->second.pop_front();
+      T ret = high_queue.rbegin()->second.front().second;  //获取消息
+      high_queue.rbegin()->second.pop_front(); //转向优先级相同的下一个conn
       if (high_queue.rbegin()->second.empty()) {
 	high_queue.erase(high_queue.rbegin()->first);
       }
@@ -285,11 +286,13 @@ public:
     // if there are multiple buckets/subqueues with sufficient tokens,
     // we behave like a strict priority queue among all subqueues that
     // are eligible to run.
+    // 是否能够基于权重调度：权重大于阈值
     for (typename SubQueues::iterator i = queue.begin();
 	 i != queue.end();
 	 ++i) {
       assert(!(i->second.empty()));
-      if (i->second.front().first < i->second.num_tokens()) {
+	   //总是从最低优先级的消息开始处理
+      if (i->second.front().first <= i->second.num_tokens()) {
 	T ret = i->second.front().second;
 	unsigned cost = i->second.front().first;
 	i->second.take_tokens(cost);
@@ -297,20 +300,21 @@ public:
 	if (i->second.empty()) {
 	  remove_queue(i->first);
 	}
-	distribute_tokens(cost);
+	distribute_tokens(cost);  //权重重新计算
 	return ret;
       }
     }
 
     // if no subqueues have sufficient tokens, we behave like a strict
     // priority queue.
+    // 不能基于权重调度, 就按照优先级调度
     T ret = queue.rbegin()->second.front().second;
     unsigned cost = queue.rbegin()->second.front().first;
     queue.rbegin()->second.pop_front();
     if (queue.rbegin()->second.empty()) {
       remove_queue(queue.rbegin()->first);
     }
-    distribute_tokens(cost);
+    distribute_tokens(cost);  //权重重新计算
     return ret;
   }
 

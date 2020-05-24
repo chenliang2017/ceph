@@ -86,10 +86,10 @@ void DispatchQueue::enqueue(Message *m, int priority, uint64_t id)
   add_arrival(m);
   if (priority >= CEPH_MSG_PRIO_LOW) {
     mqueue.enqueue_strict(
-        id, priority, QueueItem(m));
+        id, priority, QueueItem(m));  //严格优先级队列
   } else {
     mqueue.enqueue(
-        id, priority, m->get_cost(), QueueItem(m));
+        id, priority, m->get_cost(), QueueItem(m));  //普通优先级队列
   }
   cond.Signal();
 }
